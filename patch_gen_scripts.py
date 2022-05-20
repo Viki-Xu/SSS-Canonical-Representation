@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from collections import defaultdict
+from itertools import starmap
 import json
 import os
 import pickle
@@ -78,6 +79,19 @@ def _get_kps_pos_in_patch(annotated_kps: np.array,
     annotated_kps[:,0] -= start_ping
     annotated_kps[:,1] -= start_bin
     return annotated_kps
+
+def patch_pair_gen(kps1, kps2, patch_size):
+    """ Generate a Patch class with two patches and kps
+
+    """
+    center_kps1 = [(kps1[:,1].max() + kps1[:,1].min())/2, (kps1[:,0].max() + kps1[:,0].min())/2]
+    center_kps2 = [(kps2[:,1].max() + kps2[:,1].min())/2, (kps2[:,0].max() + kps2[:,0].min())/2]
+    max_ping_height = kps2[:,1].max() - kps2[:,1].min() + 1
+    if max_ping_height <= patch_size:
+        start_ping1 = center_kps1[1] - (patch_size - 1) / 2   # start_ping should be included as the first ping of patch
+        start_ping2 = center_kps2[1] - (patch_size - 1) / 2
+        kps1_in_patch = _get_annotated_keypoints_in_patch(kps1, start_ping1, start_bin1)
+        kps2_in_patch = _get_annotated_keypoints_in_patch(kps2, start_ping2, start_bin2)
 
 def compute_desc_at_annotated_locations(
         img: np.array,
@@ -169,11 +183,13 @@ def generate_patches_pair(file_id: str,
     # matched_kps_stdb2 = matched_kps2[not(matched_kps2[:,1]<nadir)]
     nbr_patches = np.ceil(img1.shape[0]/patch_size).astype(int)
     for i in range(nbr_patches):
-        patch1_kps1_port_ind = (matched_kps_port1[:,0] < (i-1)*patch_size) * (matched_kps_port1[:,0] >= i*patch_size)
-        patch1_kps1_stbd_ind = (matched_kps_stdb1[:,0] < (i-1)*patch_size) * (matched_kps_stdb1[:,0] >= i*patch_size)
-        if patch1_kps1_port_ind.any() and matched_kps2[]:
+        patch1_kps1_ind = (matched_kps1[:,0] >= (i-1)*patch_size) * (matched_kps1[:,0] < i*patch_size)
+        port1_ind = matched_kps1[patch1_kps1_ind,1]<nadir
+        stdb1_ind = not(matched_kps1[patch1_kps1_ind,1]<nadir)
+        # if both the kps in img1 and img2 are in the same side, split the patch
+        if port1_ind.any() and ((matched_kps2[port1_ind,1]<nadir).any() != (matched_kps2[port1_ind,1]>=nadir).any()):
             patch_pair_gen()
-        if patch1_kps1_stbd_ind.any():
+        if stdb1_ind.any() and ((matched_kps2[stdb1_ind,1]<nadir).any() != (matched_kps2[stdb1_ind,1]>=nadir).any()):
             patch_pair_gen()
         # divide kps1 based pings_size
         # get the corresponding kps in kps2
