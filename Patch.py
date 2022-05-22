@@ -72,8 +72,8 @@ class Patch:
     sss_waterfall_image1: np.array
     sss_waterfall_image2: np.array
     is_canonical: bool
-    annotated_keypoints1: dict
-    annotated_keypoints2: dict
+    annotated_keypoints1: np.array
+    annotated_keypoints2: np.array
 
     @property
     def nbr_pings(self):

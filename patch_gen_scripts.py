@@ -80,18 +80,60 @@ def _get_kps_pos_in_patch(annotated_kps: np.array,
     annotated_kps[:,1] -= start_bin
     return annotated_kps
 
-def patch_pair_gen(kps1, kps2, patch_size):
-    """ Generate a Patch class with two patches and kps
-
-    """
+def patch_pair_gen(kps1: np.array,
+                   kps2: np.array,
+                   patch_size: int,
+                   path1: str,
+                   path2: str,
+                   is_canonical: bool,
+                   img1: np.array,
+                   img2: np.array,
+                   patch_id: int,
+                   patch_outpath: str):
+    """ Generate a Patch class with two patches and kps"""
     center_kps1 = [(kps1[:,1].max() + kps1[:,1].min())/2, (kps1[:,0].max() + kps1[:,0].min())/2]
     center_kps2 = [(kps2[:,1].max() + kps2[:,1].min())/2, (kps2[:,0].max() + kps2[:,0].min())/2]
-    max_ping_height = kps2[:,1].max() - kps2[:,1].min() + 1
+    max_ping_height = kps2[:,0].max() - kps2[:,0].min() + 1
     if max_ping_height <= patch_size:
-        start_ping1 = center_kps1[1] - (patch_size - 1) / 2   # start_ping should be included as the first ping of patch
-        start_ping2 = center_kps2[1] - (patch_size - 1) / 2
-        kps1_in_patch = _get_annotated_keypoints_in_patch(kps1, start_ping1, start_bin1)
-        kps2_in_patch = _get_annotated_keypoints_in_patch(kps2, start_ping2, start_bin2)
+        start_ping_1 = center_kps1[1] - (patch_size - 1) / 2   # start_ping should be included as the first ping of patch, start_bin also included
+        start_ping_2 = center_kps2[1] - (patch_size - 1) / 2
+        max_bin_width1 = kps1[:,1].max() - kps1[:,1].min() + 1
+        max_bin_width2 = kps2[:,1].max() - kps2[:,1].min() + 1
+        bin_width = np.ceil(max(max_bin_width1, max_bin_width2) / 2).astype(int) + 10
+        start_bin_1 = center_kps1[0] - bin_width
+        start_bin_2 = center_kps2[0] - bin_width
+        kps1_in_patch = _get_annotated_keypoints_in_patch(kps1, start_ping_1, start_bin_1)
+        kps2_in_patch = _get_annotated_keypoints_in_patch(kps2, start_ping_2, start_bin_2)
+        end_ping_1 = start_ping_1 + patch_size - 1
+        end_ping_2 = start_ping_2 + patch_size - 1
+        end_bin_1 = start_bin_1 + bin_width * 2
+        end_bin_2 = start_bin_2 + bin_width * 2
+        patch_img1 = img1[start_ping_1 : (end_ping_1 + 1), start_bin_1 : (end_bin_1 + 1)]
+        patch_img2 = img2[start_ping_2 : (end_ping_2 + 1), start_bin_2 : (end_bin_2 + 1)]
+
+        patch = Patch(
+                    filename1=os.path.basename(path1),
+                    filename2=os.path.basename(path2),
+                    start_ping1 = start_ping_1,
+                    end_ping1 = end_ping_1,
+                    start_bin1 = start_bin_1,
+                    end_bin1 = end_bin_1,
+                    start_ping2 = start_ping_2,
+                    end_ping2 = end_ping_2,
+                    start_bin2 = start_bin_2,
+                    end_bin2 = end_bin_2,
+                    sss_waterfall_image1 = patch_img1,
+                    sss_waterfall_image2 = patch_img2,
+                    is_canonical = is_canonical,
+                    annotated_keypoints1 = kps1_in_patch,
+                    annotated_keypoints2 = kps2_in_patch)
+        patch_filename = (
+                    f'patch{patch_id}_{path1}_{path2}_iscanonical_{is_canonical}.pkl')
+        with open(os.path.join(patch_outpath, patch_filename),
+                    'wb') as f:
+            pickle.dump(patch, f)
+    return patch
+
 
 def compute_desc_at_annotated_locations(
         img: np.array,
@@ -136,14 +178,12 @@ def compute_desc_at_annotated_locations(
     return annotated_kps_as_cv2_kp, desc, normalized_8bit_img
 
 
-def generate_patches_pair(file_id: str,
-                          path1: str,
+def generate_patches_pair(path1: str,
                           path2: str,
                           matched_kps1: np.array,
                           matched_kps2: np.array,
                           is_canonical: bool,
                           patch_size: int,
-                          step_size: int,
                           patch_outpath: str,
                           patch_id_init_val: int = 0) -> int:
     """
@@ -177,6 +217,7 @@ def generate_patches_pair(file_id: str,
     img1 = np.load(path1)
     img2 = np.load(path2)
     nadir = int(img1.shape[1] / 2)
+    patch_id = patch_id_init_val
     # matched_kps_port1 = matched_kps1[matched_kps1[:,1]<nadir]
     # matched_kps_stdb1 = matched_kps1[not(matched_kps1[:,1]<nadir)]
     # matched_kps_port2 = matched_kps2[matched_kps2[:,1]<nadir]
@@ -188,15 +229,34 @@ def generate_patches_pair(file_id: str,
         stdb1_ind = not(matched_kps1[patch1_kps1_ind,1]<nadir)
         # if both the kps in img1 and img2 are in the same side, split the patch
         if port1_ind.any() and ((matched_kps2[port1_ind,1]<nadir).any() != (matched_kps2[port1_ind,1]>=nadir).any()):
-            patch_pair_gen()
+            patch_port = patch_pair_gen(matched_kps1[port1_ind],
+                                        matched_kps2[port1_ind],
+                                        patch_size,
+                                        path1,
+                                        path2,
+                                        is_canonical,
+                                        img1,
+                                        img2,
+                                        patch_id,
+                                        patch_outpath)
+            patch_id += 1
         if stdb1_ind.any() and ((matched_kps2[stdb1_ind,1]<nadir).any() != (matched_kps2[stdb1_ind,1]>=nadir).any()):
-            patch_pair_gen()
+            patch_stbd = patch_pair_gen(matched_kps1[stdb1_ind],
+                                        matched_kps2[stdb1_ind],
+                                        patch_size,
+                                        path1,
+                                        path2,
+                                        is_canonical,
+                                        img1,
+                                        img2,
+                                        patch_id,
+                                        patch_outpath)
+            patch_id += 1
         # divide kps1 based pings_size
         # get the corresponding kps in kps2
         # divide to stdb and port
         # check if kps2 across nadir
         # extract patch around kps and save
-    return patch_id
 
 def generate_sss_patches(file_id: str,
                          path: str,
