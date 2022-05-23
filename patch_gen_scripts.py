@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 from Patch import Patch
 import cv2
 from auvlib.bathy_maps.map_draper import sss_meas_data
+import sys
+sys.path.append('/home/weiqi/auvlib/scripts')
+sys.path.append('/home/weiqi/Canonical Correction')
 
 def _get_annotated_keypoints_in_patch(path: str, annotations_dir: str,
                                       start_ping: int, end_ping: int,
@@ -95,15 +98,15 @@ def patch_pair_gen(kps1: np.array,
     center_kps2 = [(kps2[:,1].max() + kps2[:,1].min())/2, (kps2[:,0].max() + kps2[:,0].min())/2]
     max_ping_height = kps2[:,0].max() - kps2[:,0].min() + 1
     if max_ping_height <= patch_size:
-        start_ping_1 = center_kps1[1] - (patch_size - 1) / 2   # start_ping should be included as the first ping of patch, start_bin also included
-        start_ping_2 = center_kps2[1] - (patch_size - 1) / 2
+        start_ping_1 = int(center_kps1[1] - (patch_size - 1) / 2)   # start_ping should be included as the first ping of patch, start_bin also included
+        start_ping_2 = int(center_kps2[1] - (patch_size - 1) / 2)
         max_bin_width1 = kps1[:,1].max() - kps1[:,1].min() + 1
         max_bin_width2 = kps2[:,1].max() - kps2[:,1].min() + 1
         bin_width = np.ceil(max(max_bin_width1, max_bin_width2) / 2).astype(int) + 10
-        start_bin_1 = center_kps1[0] - bin_width
-        start_bin_2 = center_kps2[0] - bin_width
-        kps1_in_patch = _get_annotated_keypoints_in_patch(kps1, start_ping_1, start_bin_1)
-        kps2_in_patch = _get_annotated_keypoints_in_patch(kps2, start_ping_2, start_bin_2)
+        start_bin_1 = int(center_kps1[0] - bin_width)
+        start_bin_2 = int(center_kps2[0] - bin_width)
+        kps1_in_patch = _get_kps_pos_in_patch(kps1, start_ping_1, start_bin_1)
+        kps2_in_patch = _get_kps_pos_in_patch(kps2, start_ping_2, start_bin_2)
         end_ping_1 = start_ping_1 + patch_size - 1
         end_ping_2 = start_ping_2 + patch_size - 1
         end_bin_1 = start_bin_1 + bin_width * 2
@@ -112,6 +115,7 @@ def patch_pair_gen(kps1: np.array,
         patch_img2 = img2[start_ping_2 : (end_ping_2 + 1), start_bin_2 : (end_bin_2 + 1)]
 
         patch = Patch(
+                    patch_id=patch_id,
                     filename1=os.path.basename(path1),
                     filename2=os.path.basename(path2),
                     start_ping1 = start_ping_1,
@@ -127,8 +131,10 @@ def patch_pair_gen(kps1: np.array,
                     is_canonical = is_canonical,
                     annotated_keypoints1 = kps1_in_patch,
                     annotated_keypoints2 = kps2_in_patch)
+        file1 = os.path.splitext(os.path.basename(path1))[0]
+        file2 = os.path.splitext(os.path.basename(path2))[0]
         patch_filename = (
-                    f'patch{patch_id}_{path1}_{path2}_iscanonical_{is_canonical}.pkl')
+                    f'patch{patch_id}_{file1}_{file2}_iscanonical_{is_canonical}.pkl')
         with open(os.path.join(patch_outpath, patch_filename),
                     'wb') as f:
             pickle.dump(patch, f)
@@ -185,7 +191,7 @@ def generate_patches_pair(path1: str,
                           is_canonical: bool,
                           patch_size: int,
                           patch_outpath: str,
-                          patch_id_init_val: int = 0) -> int:
+                          patch_id_init_val: int = 0):
     """
     Generates patches of class Patch from given nparray img and kps with the required specifications.
 
@@ -223,14 +229,16 @@ def generate_patches_pair(path1: str,
     # matched_kps_port2 = matched_kps2[matched_kps2[:,1]<nadir]
     # matched_kps_stdb2 = matched_kps2[not(matched_kps2[:,1]<nadir)]
     nbr_patches = np.ceil(img1.shape[0]/patch_size).astype(int)
+    port1_ind = (matched_kps1[:,1] < nadir)
+    stdb1_ind = (matched_kps1[:,1] >= nadir)
     for i in range(nbr_patches):
         patch1_kps1_ind = (matched_kps1[:,0] >= (i-1)*patch_size) * (matched_kps1[:,0] < i*patch_size)
-        port1_ind = matched_kps1[patch1_kps1_ind,1]<nadir
-        stdb1_ind = not(matched_kps1[patch1_kps1_ind,1]<nadir)
-        # if both the kps in img1 and img2 are in the same side, split the patch
-        if port1_ind.any() and ((matched_kps2[port1_ind,1]<nadir).any() != (matched_kps2[port1_ind,1]>=nadir).any()):
-            patch_port = patch_pair_gen(matched_kps1[port1_ind],
-                                        matched_kps2[port1_ind],
+        patch_port1_ind = patch1_kps1_ind * port1_ind
+        patch_stdb1_ind = patch1_kps1_ind * stdb1_ind
+        # if both the kps in img1 and img2 are in the same side, split the patch / port1_ind has the same dimension as patch1_kps1_ind instead of matched_kps
+        if patch_port1_ind.any() and ((matched_kps2[patch_port1_ind,1]<nadir).any() != (matched_kps2[patch_port1_ind,1]>=nadir).any()):
+            patch_port = patch_pair_gen(matched_kps1[patch_port1_ind],
+                                        matched_kps2[patch_port1_ind],
                                         patch_size,
                                         path1,
                                         path2,
@@ -240,9 +248,9 @@ def generate_patches_pair(path1: str,
                                         patch_id,
                                         patch_outpath)
             patch_id += 1
-        if stdb1_ind.any() and ((matched_kps2[stdb1_ind,1]<nadir).any() != (matched_kps2[stdb1_ind,1]>=nadir).any()):
-            patch_stbd = patch_pair_gen(matched_kps1[stdb1_ind],
-                                        matched_kps2[stdb1_ind],
+        if patch_stdb1_ind.any() and ((matched_kps2[patch_stdb1_ind,1]<nadir).any() != (matched_kps2[patch_stdb1_ind,1]>=nadir).any()):
+            patch_stbd = patch_pair_gen(matched_kps1[patch_stdb1_ind],
+                                        matched_kps2[patch_stdb1_ind],
                                         patch_size,
                                         path1,
                                         path2,

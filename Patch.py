@@ -58,7 +58,6 @@ class Patch:
         sss_meas_data at (ping_idx+start_ping, bin_idx + start_bin)
     """
     patch_id: int
-    file_id: str
     filename1: str
     filename2: str
     start_ping1: int
