@@ -11,7 +11,7 @@ import time
 
 xtf_file = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0174-l05s01-20210210-114538.XTF"
 
-def canonical_trans(xtf_file, len_pings = 1301, gamma = 0.01, num_iter = 3):
+def canonical_trans(xtf_file, kps, len_pings = 1301):
     xtf_pings = xtf_data.xtf_sss_ping.parse_file(xtf_file)
 
     ########################  Image Deconvolution  ###############################
@@ -145,4 +145,21 @@ def canonical_trans(xtf_file, len_pings = 1301, gamma = 0.01, num_iter = 3):
 
     pings = np.concatenate((np.fliplr(corrected_stbd),corrected_port), axis=1)
 
-    return pings, r, rg, rg_bar
+    nbr_bins_canonical = int(pings.shape[1] / 2)
+    kp_ind1 = np.linspace(len_pings-1, 0, num=len_pings).astype(np.int16)
+    kp_ind2 = np.linspace(0, len_pings-1, num=len_pings).astype(np.int16)
+    kp_ind = np.concatenate([kp_ind1, kp_ind2])
+    flag = np.zeros(kps.shape[0])
+    flag[kps[:,1] > len_pings-1] = 1
+    divd_matched_kps = kps.copy()
+    divd_matched_kps[:,1] = kp_ind[kps[:,1].astype(np.int16)]
+
+    r_g1 = rg[divd_matched_kps[:,0].astype(np.int16), divd_matched_kps[:,1].astype(np.int16)]
+    rg_bar_pr = rg_bar + delta_r
+
+    ind1 = np.array([np.argmax(rg_bar_pr > yg) for yg in r_g1])
+    canonical_kps = divd_matched_kps
+    canonical_kps[flag>0,1] = ind1[flag>0] + nbr_bins_canonical
+    canonical_kps[flag==0,1] = nbr_bins_canonical - ind1[flag==0] -1
+
+    return pings, r, rg, rg_bar, canonical_kps
