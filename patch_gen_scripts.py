@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from itertools import starmap
 import json
+from operator import index
 import os
 import pickle
 import shutil
@@ -74,6 +75,20 @@ def _get_annotated_keypoints_in_patch(path: str, annotations_dir: str,
                             annotation_filepath
                         }
     return keypoints
+
+def multidim_intersect(arr1, arr2):
+    ''' input: two multi-dimenstion nparray
+        output: array with intersected values, corresponding index of two arrays
+    '''
+    # arr1_view = arr1.view([('',arr1.dtype)]*arr1.shape[1])
+    # arr2_view = arr2.view([('',arr2.dtype)]*arr2.shape[1])
+    # intersected = np.intersect1d(arr1_view, arr2_view)
+    # intersected_values = intersected.view(arr1.dtype).reshape(-1, arr1.shape[1])
+    arr1_1d = arr1.view(np.dtype((np.void, arr1.dtype.itemsize * arr1.shape[-1])))
+    arr2_1d = arr2.view(np.dtype((np.void, arr2.dtype.itemsize * arr2.shape[-1])))
+    ind_arr1 = np.in1d(arr1_1d, arr2_1d, False)
+    ind_arr2 = np.in1d(arr2_1d, arr1_1d, False)
+    return ind_arr1, ind_arr2
 
 def _get_kps_pos_in_patch(annotated_kps: np.array,
                             start_ping: int,

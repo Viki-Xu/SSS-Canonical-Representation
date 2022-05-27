@@ -1,4 +1,6 @@
+import string
 import sys
+
 sys.path.append('/home/weiqi/auvlib/scripts')
 sys.path.append('/home/weiqi/Canonical Correction')
 
@@ -6,7 +8,7 @@ import os
 import pickle
 from matplotlib import pyplot as plt
 import numpy as np
-from patch_gen_scripts import generate_patches_pair, compute_desc_at_annotated_locations
+from patch_gen_scripts import generate_patches_pair, compute_desc_at_annotated_locations, multidim_intersect
 from sss_annotation.sss_correspondence_finder import SSSFolderAnnotator
 from AlongTrack_Deconvolution import canonical_trans
 import cv2 as cv
@@ -55,12 +57,78 @@ generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonica
 bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=False)
 lowe_ratio = 0.89
 
+number_of_pair = int(len(os.listdir(patch_outpath)) / 2)
+patch_comparision = np.full((number_of_pair, 3), '', dtype=object)
+
+# get the raw and canonical patch pairs stored in the same patch no
+for filename in os.listdir(patch_outpath):
+    patch_no = filename.split('_')[0]
+    if not patch_no in patch_comparision:
+        ind = np.argwhere(patch_comparision[:,0] == '')[0][0]
+        patch_comparision[ind, 0] = patch_no
+        patch_comparision[ind, 1] = filename
+    else:
+        ind = np.argwhere(patch_comparision[:,0] == patch_no)[0][0]
+        patch_comparision[ind, 2] = filename
+
+for i in range(number_of_pair):
+    with open(os.path.join(patch_outpath, patch_comparision[i,1]), 'rb') as f1:
+        patch1= pickle.load(f1)
+    with open(os.path.join(patch_outpath, patch_comparision[i,2]), 'rb') as f2:
+        patch2= pickle.load(f2)
+    
+    if len(patch1.annotated_keypoints1) != len(patch2.annotated_keypoints1):
+        print(f'Canonical and raw kypoints number not equal!!!')
+        continue
+    orb = cv.ORB_create()
+    patch1_annotated_kps1, patch1_desc1, patch1_img2_normalized = compute_desc_at_annotated_locations(patch1.sss_waterfall_image1, patch1.annotated_keypoints1, orb, kp_size=16)
+    patch1_annotated_kps2, patch1_desc2, patch1_img1_normalized = compute_desc_at_annotated_locations(patch1.sss_waterfall_image1, patch1.annotated_keypoints2, orb, kp_size=16)
+    patch2_annotated_kps1, patch2_desc1, patch2_img2_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image1, patch2.annotated_keypoints1, orb, kp_size=16)
+    patch2_annotated_kps2, patch2_desc2, patch2_img1_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image1, patch2.annotated_keypoints2, orb, kp_size=16)
+
+    pt_patch1_img1 = [[patch1_annotated_kps1[i].pt[1], patch1_annotated_kps1[i].pt[0]] for i in range(len(patch1_annotated_kps1))]
+    pt_patch1_img2 = [[patch1_annotated_kps2[i].pt[1], patch1_annotated_kps2[i].pt[0]] for i in range(len(patch1_annotated_kps2))]
+    pt_patch2_img1 = [[patch2_annotated_kps1[i].pt[1], patch2_annotated_kps1[i].pt[0]] for i in range(len(patch2_annotated_kps1))]
+    pt_patch2_img2 = [[patch2_annotated_kps2[i].pt[1], patch2_annotated_kps2[i].pt[0]] for i in range(len(patch2_annotated_kps2))]
+
+    kept_pt1_patch1 = multidim_intersect(np.array(patch1.annotated_keypoints1), np.array(pt_patch1_img1))
+    kept_pt2_patch1 = multidim_intersect(np.array(patch1.annotated_keypoints2), np.array(pt_patch1_img2))
+    kept_pt1_patch2 = multidim_intersect(np.array(patch2.annotated_keypoints1), np.array(pt_patch2_img1))
+    kept_pt2_patch2 = multidim_intersect(np.array(patch2.annotated_keypoints2), np.array(pt_patch2_img2))
+
+    # find the intersection of the four lists' pos
+
 for filename in os.listdir(patch_outpath):
     with open(os.path.join(patch_outpath, filename), 'rb') as f:
         patch = pickle.load(f)
+    
+    if patch.annotated_keypoints1.shape[0] != patch.annotated_keypoints2.shape[0]:
+        print(f'Keypoints number not equal!!!')
+        continue
+    
     orb = cv.ORB_create()
     annotated_kps1, desc1, patch1_normalized = compute_desc_at_annotated_locations(patch.sss_waterfall_image1, patch.annotated_keypoints1, orb, kp_size=16)
     annotated_kps2, desc2, patch2_normalized = compute_desc_at_annotated_locations(patch.sss_waterfall_image1, patch.annotated_keypoints2, orb, kp_size=16)
+    if desc1.shape[0] != patch.annotated_keypoints1.shape[0] or desc2.shape[0] != patch.annotated_keypoints2.shape[0]:
+        print(f'Keypoints cannot be computed!!!')
+        continue
+    
+    '''
+    pt = [[annotated_kps1[i].pt[1], annotated_kps1[i].pt[0]] for i in range(len(annotated_kps1))]
+    can get the pos of kps and cv2.KeyPoint kps
+    Long list:  A
+    Sub list: B, C
+    use A.index(B) to get the sub index?
+    By comparing pos, we can map A to B and C by bool list, then get the bool list of A's kps in B and C
+    But how to map the bool list of A to B and C?
+    how to get the index of same kps of 2 cv2.KeyPoint list?
+    '''
+    
+    distance = [cv.norm(desc1[i],desc2[i],cv.NORM_HAMMING) for i in range(desc1.shape[0])]
+    plt.figure()
+    plt.plot(distance)
+    plt.title(filename)
+
     cano_matches = bf.knnMatch(desc1, desc2, k=2)
 
     # Apply ratio test
@@ -71,8 +139,7 @@ for filename in os.listdir(patch_outpath):
             cano_good.append([m])
     score_cano = len(cano_good) / max(len(desc1), len(desc2))
     print(f'Score, {score_cano}...... Is canonical, {patch.is_canonical}')
-    if desc1.shape[0] != len(annotated_kps1) or desc2.shape[0] != len(annotated_kps2):
-        print(f'Keypoints cannot be computed!!!')
+
     cano_matched_img = cv.drawMatchesKnn(patch1_normalized,annotated_kps1,patch2_normalized,annotated_kps2,cano_matches, None, flags=2)
     plt.figure()
     plt.imshow(cano_matched_img)
