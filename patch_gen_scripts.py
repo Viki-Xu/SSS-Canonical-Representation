@@ -96,7 +96,7 @@ def _get_kps_pos_in_patch(annotated_kps: np.array,
     
     annotated_kps[:,0] -= start_ping
     annotated_kps[:,1] -= start_bin
-    return annotated_kps
+    return np.array(annotated_kps)
 
 def patch_pair_gen(kps1: np.array,
                    kps2: np.array,

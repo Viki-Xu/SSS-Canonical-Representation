@@ -1,3 +1,4 @@
+from cProfile import label
 import string
 import sys
 
@@ -86,17 +87,38 @@ for i in range(number_of_pair):
     patch2_annotated_kps1, patch2_desc1, patch2_img2_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image1, patch2.annotated_keypoints1, orb, kp_size=16)
     patch2_annotated_kps2, patch2_desc2, patch2_img1_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image1, patch2.annotated_keypoints2, orb, kp_size=16)
 
-    pt_patch1_img1 = [[patch1_annotated_kps1[i].pt[1], patch1_annotated_kps1[i].pt[0]] for i in range(len(patch1_annotated_kps1))]
-    pt_patch1_img2 = [[patch1_annotated_kps2[i].pt[1], patch1_annotated_kps2[i].pt[0]] for i in range(len(patch1_annotated_kps2))]
-    pt_patch2_img1 = [[patch2_annotated_kps1[i].pt[1], patch2_annotated_kps1[i].pt[0]] for i in range(len(patch2_annotated_kps1))]
-    pt_patch2_img2 = [[patch2_annotated_kps2[i].pt[1], patch2_annotated_kps2[i].pt[0]] for i in range(len(patch2_annotated_kps2))]
+    pt_patch1_img1 = np.array([[patch1_annotated_kps1[i].pt[1], patch1_annotated_kps1[i].pt[0]] for i in range(len(patch1_annotated_kps1))]).astype(np.float32)
+    pt_patch1_img2 = np.array([[patch1_annotated_kps2[i].pt[1], patch1_annotated_kps2[i].pt[0]] for i in range(len(patch1_annotated_kps2))]).astype(np.float32)
+    pt_patch2_img1 = np.array([[patch2_annotated_kps1[i].pt[1], patch2_annotated_kps1[i].pt[0]] for i in range(len(patch2_annotated_kps1))]).astype(np.float32)
+    pt_patch2_img2 = np.array([[patch2_annotated_kps2[i].pt[1], patch2_annotated_kps2[i].pt[0]] for i in range(len(patch2_annotated_kps2))]).astype(np.float32)
 
-    kept_pt1_patch1 = multidim_intersect(np.array(patch1.annotated_keypoints1), np.array(pt_patch1_img1))
-    kept_pt2_patch1 = multidim_intersect(np.array(patch1.annotated_keypoints2), np.array(pt_patch1_img2))
-    kept_pt1_patch2 = multidim_intersect(np.array(patch2.annotated_keypoints1), np.array(pt_patch2_img1))
-    kept_pt2_patch2 = multidim_intersect(np.array(patch2.annotated_keypoints2), np.array(pt_patch2_img2))
+    kept_pt1_patch1, _ = multidim_intersect(patch1.annotated_keypoints1, pt_patch1_img1)
+    kept_pt2_patch1, _ = multidim_intersect(patch1.annotated_keypoints2, pt_patch1_img2)
+    kept_pt1_patch2, _ = multidim_intersect(patch2.annotated_keypoints1, pt_patch2_img1)
+    kept_pt2_patch2, _ = multidim_intersect(patch2.annotated_keypoints2, pt_patch2_img2)
 
+    intersected_kps = kept_pt1_patch1 * kept_pt1_patch2 * kept_pt2_patch1 * kept_pt2_patch2
+
+    _, kps1_for_eval_patch1 = multidim_intersect(patch1.annotated_keypoints1[intersected_kps], pt_patch1_img1)
+    _, kps2_for_eval_patch1 = multidim_intersect(patch1.annotated_keypoints2[intersected_kps], pt_patch1_img2)
+    _, kps1_for_eval_patch2 = multidim_intersect(patch2.annotated_keypoints1[intersected_kps], pt_patch2_img1)
+    _, kps2_for_eval_patch2 = multidim_intersect(patch2.annotated_keypoints2[intersected_kps], pt_patch2_img2)
+
+    patch1_desc1_for_eval = patch1_desc1[kps1_for_eval_patch1]
+    patch1_desc2_for_eval = patch1_desc2[kps2_for_eval_patch1]
+    patch2_desc1_for_eval = patch2_desc1[kps1_for_eval_patch2]
+    patch2_desc2_for_eval = patch2_desc2[kps2_for_eval_patch2]
+
+    desc_distance_patch1 = [cv.norm(patch1_desc1_for_eval[i],patch1_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch1_desc2_for_eval.shape[0])]
+    desc_distance_patch2 = [cv.norm(patch2_desc1_for_eval[i],patch2_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch2_desc2_for_eval.shape[0])]
+
+    plt.figure()
+    plt.plot(desc_distance_patch1, label = str(patch1.is_canonical))
+    plt.plot(desc_distance_patch2, label = str(patch2.is_canonical))
+    plt.legend()
     # find the intersection of the four lists' pos
+
+plt.show()
 
 for filename in os.listdir(patch_outpath):
     with open(os.path.join(patch_outpath, filename), 'rb') as f:
@@ -109,9 +131,9 @@ for filename in os.listdir(patch_outpath):
     orb = cv.ORB_create()
     annotated_kps1, desc1, patch1_normalized = compute_desc_at_annotated_locations(patch.sss_waterfall_image1, patch.annotated_keypoints1, orb, kp_size=16)
     annotated_kps2, desc2, patch2_normalized = compute_desc_at_annotated_locations(patch.sss_waterfall_image1, patch.annotated_keypoints2, orb, kp_size=16)
-    if desc1.shape[0] != patch.annotated_keypoints1.shape[0] or desc2.shape[0] != patch.annotated_keypoints2.shape[0]:
-        print(f'Keypoints cannot be computed!!!')
-        continue
+    # if desc1.shape[0] != patch.annotated_keypoints1.shape[0] or desc2.shape[0] != patch.annotated_keypoints2.shape[0]:
+    #     print(f'Keypoints cannot be computed!!!')
+    #     continue
     
     '''
     pt = [[annotated_kps1[i].pt[1], annotated_kps1[i].pt[0]] for i in range(len(annotated_kps1))]
@@ -124,10 +146,10 @@ for filename in os.listdir(patch_outpath):
     how to get the index of same kps of 2 cv2.KeyPoint list?
     '''
     
-    distance = [cv.norm(desc1[i],desc2[i],cv.NORM_HAMMING) for i in range(desc1.shape[0])]
-    plt.figure()
-    plt.plot(distance)
-    plt.title(filename)
+    # distance = [cv.norm(desc1[i],desc2[i],cv.NORM_HAMMING) for i in range(desc1.shape[0])]
+    # plt.figure()
+    # plt.plot(distance)
+    # plt.title(filename)
 
     cano_matches = bf.knnMatch(desc1, desc2, k=2)
 
@@ -140,7 +162,9 @@ for filename in os.listdir(patch_outpath):
     score_cano = len(cano_good) / max(len(desc1), len(desc2))
     print(f'Score, {score_cano}...... Is canonical, {patch.is_canonical}')
 
-    cano_matched_img = cv.drawMatchesKnn(patch1_normalized,annotated_kps1,patch2_normalized,annotated_kps2,cano_matches, None, flags=2)
+    for i in range(len(cano_good)):
+        cano_good[i][0].trainIdx = cano_good[i][0].queryIdx
+    cano_matched_img = cv.drawMatchesKnn(patch1_normalized,annotated_kps1,patch2_normalized,annotated_kps2,cano_good, None, flags=2)
     plt.figure()
     plt.imshow(cano_matched_img)
  
