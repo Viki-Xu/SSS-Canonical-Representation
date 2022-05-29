@@ -81,11 +81,49 @@ for i in range(number_of_pair):
     if len(patch1.annotated_keypoints1) != len(patch2.annotated_keypoints1):
         print(f'Canonical and raw kypoints number not equal!!!')
         continue
+
     orb = cv.ORB_create()
-    patch1_annotated_kps1, patch1_desc1, patch1_img2_normalized = compute_desc_at_annotated_locations(patch1.sss_waterfall_image1, patch1.annotated_keypoints1, orb, kp_size=16)
-    patch1_annotated_kps2, patch1_desc2, patch1_img1_normalized = compute_desc_at_annotated_locations(patch1.sss_waterfall_image1, patch1.annotated_keypoints2, orb, kp_size=16)
-    patch2_annotated_kps1, patch2_desc1, patch2_img2_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image1, patch2.annotated_keypoints1, orb, kp_size=16)
-    patch2_annotated_kps2, patch2_desc2, patch2_img1_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image1, patch2.annotated_keypoints2, orb, kp_size=16)
+    patch1_annotated_kps1, patch1_desc1, patch1_img1_normalized = compute_desc_at_annotated_locations(patch1.sss_waterfall_image1, patch1.annotated_keypoints1, orb, kp_size=16)
+    patch1_annotated_kps2, patch1_desc2, patch1_img2_normalized = compute_desc_at_annotated_locations(patch1.sss_waterfall_image2, patch1.annotated_keypoints2, orb, kp_size=16)
+    patch2_annotated_kps1, patch2_desc1, patch2_img1_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image1, patch2.annotated_keypoints1, orb, kp_size=16)
+    patch2_annotated_kps2, patch2_desc2, patch2_img2_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image2, patch2.annotated_keypoints2, orb, kp_size=16)
+
+    patch1_matches = bf.knnMatch(patch1_desc1, patch1_desc2, k=2)
+    patch2_matches = bf.knnMatch(patch2_desc1, patch2_desc2, k=2)
+
+    # Apply ratio test
+    patch1_good = []
+    patch1_correct = []
+    patch2_good = []
+    patch2_correct = []
+
+    for m,n in patch1_matches:
+        if m.distance < lowe_ratio*n.distance:
+            patch1_good.append([m])
+    for k in patch1_good:
+        if k[0].trainIdx == k[0].queryIdx:
+            patch1_correct.append(k[0])
+    accuracy_patch1 = len(patch1_correct) / len(patch1_good)
+    print(f'Accuracy, {accuracy_patch1}...... Is canonical, {patch1.is_canonical}...... Patch no, {patch_comparision[i,0]}')
+
+    for m,n in patch2_matches:
+        if m.distance < lowe_ratio*n.distance:
+            patch2_good.append([m])
+    for k in patch2_good:
+        if k[0].trainIdx == k[0].queryIdx:
+            patch2_correct.append(k[0])
+    accuracy_patch2 = len(patch2_correct) / len(patch2_good)
+    print(f'Accuracy, {accuracy_patch2}...... Is canonical, {patch2.is_canonical}...... Patch no, {patch_comparision[i,0]}')
+
+    patch1_matched_img = cv.drawMatchesKnn(patch1_img1_normalized,patch1_annotated_kps1,patch1_img2_normalized,patch1_annotated_kps2,patch1_good, None, flags=2)
+    plt.figure()
+    plt.title(str(patch1.is_canonical) + patch_comparision[i,0])
+    plt.imshow(patch1_matched_img)
+
+    patch2_matched_img = cv.drawMatchesKnn(patch2_img1_normalized,patch2_annotated_kps1,patch2_img2_normalized,patch2_annotated_kps2,patch2_good, None, flags=2)
+    plt.figure()
+    plt.imshow(patch2_matched_img)
+    plt.title(str(patch2.is_canonical) + patch_comparision[i,0])
 
     pt_patch1_img1 = np.array([[patch1_annotated_kps1[i].pt[1], patch1_annotated_kps1[i].pt[0]] for i in range(len(patch1_annotated_kps1))]).astype(np.float32)
     pt_patch1_img2 = np.array([[patch1_annotated_kps2[i].pt[1], patch1_annotated_kps2[i].pt[0]] for i in range(len(patch1_annotated_kps2))]).astype(np.float32)
