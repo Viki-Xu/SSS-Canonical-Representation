@@ -9,7 +9,7 @@ from scipy.optimize import nnls
 from skimage.restoration import richardson_lucy
 import time
 
-xtf_file = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0174-l05s01-20210210-114538.XTF"
+# xtf_file = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0174-l05s01-20210210-114538.XTF"
 
 def canonical_trans(xtf_file, kps, len_pings = 1301):
     xtf_pings = xtf_data.xtf_sss_ping.parse_file(xtf_file)
@@ -28,6 +28,7 @@ def canonical_trans(xtf_file, kps, len_pings = 1301):
     rows = starboard.shape[0]
     starboard = starboard.reshape(rows, 1301, -1).mean(2)
     port = port.reshape(rows, 1301, -1).mean(2)
+    raw_pings = np.concatenate((np.fliplr(starboard),port), axis=1)
 
     r = np.linspace(time_duration / len_pings, time_duration, num=len_pings) * xtf_pings[0].sound_vel_  # a list of ranges = n * time interval * sound velocity, shape (20816,1)
 
@@ -162,4 +163,4 @@ def canonical_trans(xtf_file, kps, len_pings = 1301):
     canonical_kps[flag>0,1] = ind1[flag>0] + nbr_bins_canonical
     canonical_kps[flag==0,1] = nbr_bins_canonical - ind1[flag==0] -1
 
-    return pings, r, rg, rg_bar, canonical_kps
+    return raw_pings, pings, r, rg, rg_bar, canonical_kps

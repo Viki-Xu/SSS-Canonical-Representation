@@ -15,19 +15,19 @@ from AlongTrack_Deconvolution import canonical_trans
 import cv2 as cv
 
 path1 = '/home/weiqi/Canonical Correction/ssh170/ssh170_raw.npy'
-path2 = '/home/weiqi/Canonical Correction/ssh170/ssh174_raw.npy'
+path2 = '/home/weiqi/Canonical Correction/ssh170/ssh173_raw.npy'
 
 canonical_path1 = '/home/weiqi/Canonical Correction/ssh170/ssh170_canonical.npy'
-canonical_path2 = '/home/weiqi/Canonical Correction/ssh170/ssh174_canonical.npy'
+canonical_path2 = '/home/weiqi/Canonical Correction/ssh170/ssh173_canonical.npy'
 
 xtf_file1 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0170-l01s01-20210210-111341.XTF"
-xtf_file2 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0174-l05s01-20210210-114538.XTF"
+xtf_file2 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0173-l04s01-20210210-113741.XTF"
 
 draping_res_folder = '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/9-0169to0182-nbr_pings-5204'
 annotator = SSSFolderAnnotator(draping_res_folder, '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0170/correspondence_annotations_SSH-0170.json')
 
 filename1 = 'SSH-0170-l01s01-20210210-111341.cereal'
-filename2 = 'SSH-0174-l05s01-20210210-114538.cereal'
+filename2 = 'SSH-0173-l04s01-20210210-113741.cereal'
 
 matched_kps1 = []
 matched_kps2 = []
@@ -41,18 +41,19 @@ for kp_id, kp_dict in annotator.annotations_manager.correspondence_annotations.i
 matched_kps1 = np.array(matched_kps1).astype(np.float32)
 matched_kps2 = np.array(matched_kps2).astype(np.float32)
 
-patch_size = 500
-patch_outpath = '/home/weiqi/Canonical Correction/ssh170/patch_pairs'
-
-generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
-
 # do canonical transform and save img / kps
-canonical_img1, r1, rg1, rg_bar1, canonical_kps1 = canonical_trans(xtf_file1, matched_kps1, len_pings = 1301)
-canonical_img2, r2, rg2, rg_bar2, canonical_kps2 = canonical_trans(xtf_file2, matched_kps2, len_pings = 1301)
+raw_img1, canonical_img1, r1, rg1, rg_bar1, canonical_kps1 = canonical_trans(xtf_file1, matched_kps1, len_pings = 1301)
+raw_img2, canonical_img2, r2, rg2, rg_bar2, canonical_kps2 = canonical_trans(xtf_file2, matched_kps2, len_pings = 1301)
 
+np.save(path1, raw_img1)
+np.save(path2, raw_img2)
 np.save(canonical_path1, canonical_img1)
 np.save(canonical_path2, canonical_img2)
 
+patch_size = 500
+patch_outpath = '/home/weiqi/Canonical Correction/ssh170/patch_pairs/ssh173'
+
+generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
 generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonical_kps2, True, patch_size, patch_outpath)
 
 bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=False)
@@ -60,6 +61,12 @@ lowe_ratio = 0.89
 
 number_of_pair = int(len(os.listdir(patch_outpath)) / 2)
 patch_comparision = np.full((number_of_pair, 3), '', dtype=object)
+distance_cano = []
+distance_raw = []
+cano_correct = []
+raw_correct = []
+cano_matched = []
+raw_matched = []
 
 # get the raw and canonical patch pairs stored in the same patch no
 for filename in os.listdir(patch_outpath):
@@ -82,131 +89,152 @@ for i in range(number_of_pair):
         print(f'Canonical and raw kypoints number not equal!!!')
         continue
 
+    if patch1.is_canonical:
+        patch_cano = patch1
+        patch_raw = patch2
+    else:
+        patch_cano = patch2
+        patch_raw = patch1
+    
     orb = cv.ORB_create()
-    patch1_annotated_kps1, patch1_desc1, patch1_img1_normalized = compute_desc_at_annotated_locations(patch1.sss_waterfall_image1, patch1.annotated_keypoints1, orb, kp_size=16)
-    patch1_annotated_kps2, patch1_desc2, patch1_img2_normalized = compute_desc_at_annotated_locations(patch1.sss_waterfall_image2, patch1.annotated_keypoints2, orb, kp_size=16)
-    patch2_annotated_kps1, patch2_desc1, patch2_img1_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image1, patch2.annotated_keypoints1, orb, kp_size=16)
-    patch2_annotated_kps2, patch2_desc2, patch2_img2_normalized = compute_desc_at_annotated_locations(patch2.sss_waterfall_image2, patch2.annotated_keypoints2, orb, kp_size=16)
+    patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, orb, kp_size=16)
+    patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, orb, kp_size=16)
+    patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, orb, kp_size=16)
+    patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, orb, kp_size=16)
 
-    patch1_matches = bf.knnMatch(patch1_desc1, patch1_desc2, k=2)
-    patch2_matches = bf.knnMatch(patch2_desc1, patch2_desc2, k=2)
+    patch_cano_matches = bf.knnMatch(patch_cano_desc1, patch_cano_desc2, k=2)
+    patch_raw_matches = bf.knnMatch(patch_raw_desc1, patch_raw_desc2, k=2)
 
     # Apply ratio test
-    patch1_good = []
-    patch1_correct = []
-    patch2_good = []
-    patch2_correct = []
+    patch_cano_good = []
+    patch_cano_correct = []
+    patch_raw_good = []
+    patch_raw_correct = []
 
-    for m,n in patch1_matches:
+    for m,n in patch_cano_matches:
         if m.distance < lowe_ratio*n.distance:
-            patch1_good.append([m])
-    for k in patch1_good:
+            patch_cano_good.append([m])
+    for k in patch_cano_good:
         if k[0].trainIdx == k[0].queryIdx:
-            patch1_correct.append(k[0])
-    accuracy_patch1 = len(patch1_correct) / len(patch1_good)
-    print(f'Accuracy, {accuracy_patch1}...... Is canonical, {patch1.is_canonical}...... Patch no, {patch_comparision[i,0]}')
+            patch_cano_correct.append(k[0])
+    if len(patch_cano_good) > 0:
+        accuracy_patch_cano = len(patch_cano_correct) / len(patch_cano_good)
+        print(f'Canonical accuracy, {accuracy_patch_cano}...... Correct, {len(patch_cano_correct)}...... Matched, {len(patch_cano_good)}...... Patch no, {patch_comparision[i,0]}')
 
-    for m,n in patch2_matches:
+    for m,n in patch_raw_matches:
         if m.distance < lowe_ratio*n.distance:
-            patch2_good.append([m])
-    for k in patch2_good:
+            patch_raw_good.append([m])
+    for k in patch_raw_good:
         if k[0].trainIdx == k[0].queryIdx:
-            patch2_correct.append(k[0])
-    accuracy_patch2 = len(patch2_correct) / len(patch2_good)
-    print(f'Accuracy, {accuracy_patch2}...... Is canonical, {patch2.is_canonical}...... Patch no, {patch_comparision[i,0]}')
+            patch_raw_correct.append(k[0])
+    if len(patch_raw_good) > 0:
+        accuracy_patch_raw = len(patch_raw_correct) / len(patch_raw_good)
+        print(f'Raw accuracy, {accuracy_patch_raw}...... Correct, {len(patch_raw_correct)}...... Matched, {len(patch_raw_good)}...... Patch no, {patch_comparision[i,0]}')
 
-    patch1_matched_img = cv.drawMatchesKnn(patch1_img1_normalized,patch1_annotated_kps1,patch1_img2_normalized,patch1_annotated_kps2,patch1_good, None, flags=2)
+    patch_cano_matched_img = cv.drawMatchesKnn(patch_cano_img1_normalized,patch_cano_annotated_kps1,patch_cano_img2_normalized,patch_cano_annotated_kps2,patch_cano_good, None, flags=2)
     plt.figure()
-    plt.title(str(patch1.is_canonical) + patch_comparision[i,0])
-    plt.imshow(patch1_matched_img)
+    plt.title('canonical' + patch_comparision[i,0])
+    plt.imshow(patch_cano_matched_img)
 
-    patch2_matched_img = cv.drawMatchesKnn(patch2_img1_normalized,patch2_annotated_kps1,patch2_img2_normalized,patch2_annotated_kps2,patch2_good, None, flags=2)
+    patch_raw_matched_img = cv.drawMatchesKnn(patch_raw_img1_normalized,patch_raw_annotated_kps1,patch_raw_img2_normalized,patch_raw_annotated_kps2,patch_raw_good, None, flags=2)
     plt.figure()
-    plt.imshow(patch2_matched_img)
-    plt.title(str(patch2.is_canonical) + patch_comparision[i,0])
+    plt.imshow(patch_raw_matched_img)
+    plt.title('raw' + patch_comparision[i,0])
 
-    pt_patch1_img1 = np.array([[patch1_annotated_kps1[i].pt[1], patch1_annotated_kps1[i].pt[0]] for i in range(len(patch1_annotated_kps1))]).astype(np.float32)
-    pt_patch1_img2 = np.array([[patch1_annotated_kps2[i].pt[1], patch1_annotated_kps2[i].pt[0]] for i in range(len(patch1_annotated_kps2))]).astype(np.float32)
-    pt_patch2_img1 = np.array([[patch2_annotated_kps1[i].pt[1], patch2_annotated_kps1[i].pt[0]] for i in range(len(patch2_annotated_kps1))]).astype(np.float32)
-    pt_patch2_img2 = np.array([[patch2_annotated_kps2[i].pt[1], patch2_annotated_kps2[i].pt[0]] for i in range(len(patch2_annotated_kps2))]).astype(np.float32)
+    pt_patch_cano_img1 = np.array([[patch_cano_annotated_kps1[i].pt[1], patch_cano_annotated_kps1[i].pt[0]] for i in range(len(patch_cano_annotated_kps1))]).astype(np.float32)
+    pt_patch_cano_img2 = np.array([[patch_cano_annotated_kps2[i].pt[1], patch_cano_annotated_kps2[i].pt[0]] for i in range(len(patch_cano_annotated_kps2))]).astype(np.float32)
+    pt_patch_raw_img1 = np.array([[patch_raw_annotated_kps1[i].pt[1], patch_raw_annotated_kps1[i].pt[0]] for i in range(len(patch_raw_annotated_kps1))]).astype(np.float32)
+    pt_patch_raw_img2 = np.array([[patch_raw_annotated_kps2[i].pt[1], patch_raw_annotated_kps2[i].pt[0]] for i in range(len(patch_raw_annotated_kps2))]).astype(np.float32)
 
-    kept_pt1_patch1, _ = multidim_intersect(patch1.annotated_keypoints1, pt_patch1_img1)
-    kept_pt2_patch1, _ = multidim_intersect(patch1.annotated_keypoints2, pt_patch1_img2)
-    kept_pt1_patch2, _ = multidim_intersect(patch2.annotated_keypoints1, pt_patch2_img1)
-    kept_pt2_patch2, _ = multidim_intersect(patch2.annotated_keypoints2, pt_patch2_img2)
+    kept_pt1_patch_cano, _ = multidim_intersect(patch_cano.annotated_keypoints1, pt_patch_cano_img1)
+    kept_pt2_patch_cano, _ = multidim_intersect(patch_cano.annotated_keypoints2, pt_patch_cano_img2)
+    kept_pt1_patch_raw, _ = multidim_intersect(patch_raw.annotated_keypoints1, pt_patch_raw_img1)
+    kept_pt2_patch_raw, _ = multidim_intersect(patch_raw.annotated_keypoints2, pt_patch_raw_img2)
 
-    intersected_kps = kept_pt1_patch1 * kept_pt1_patch2 * kept_pt2_patch1 * kept_pt2_patch2
+    intersected_kps = kept_pt1_patch_cano * kept_pt1_patch_raw * kept_pt2_patch_cano * kept_pt2_patch_raw
 
-    _, kps1_for_eval_patch1 = multidim_intersect(patch1.annotated_keypoints1[intersected_kps], pt_patch1_img1)
-    _, kps2_for_eval_patch1 = multidim_intersect(patch1.annotated_keypoints2[intersected_kps], pt_patch1_img2)
-    _, kps1_for_eval_patch2 = multidim_intersect(patch2.annotated_keypoints1[intersected_kps], pt_patch2_img1)
-    _, kps2_for_eval_patch2 = multidim_intersect(patch2.annotated_keypoints2[intersected_kps], pt_patch2_img2)
+    _, kps1_for_eval_patch_cano = multidim_intersect(patch_cano.annotated_keypoints1[intersected_kps], pt_patch_cano_img1)
+    _, kps2_for_eval_patch_cano = multidim_intersect(patch_cano.annotated_keypoints2[intersected_kps], pt_patch_cano_img2)
+    _, kps1_for_eval_patch_raw = multidim_intersect(patch_raw.annotated_keypoints1[intersected_kps], pt_patch_raw_img1)
+    _, kps2_for_eval_patch_raw = multidim_intersect(patch_raw.annotated_keypoints2[intersected_kps], pt_patch_raw_img2)
 
-    patch1_desc1_for_eval = patch1_desc1[kps1_for_eval_patch1]
-    patch1_desc2_for_eval = patch1_desc2[kps2_for_eval_patch1]
-    patch2_desc1_for_eval = patch2_desc1[kps1_for_eval_patch2]
-    patch2_desc2_for_eval = patch2_desc2[kps2_for_eval_patch2]
+    patch_cano_desc1_for_eval = patch_cano_desc1[kps1_for_eval_patch_cano]
+    patch_cano_desc2_for_eval = patch_cano_desc2[kps2_for_eval_patch_cano]
+    patch_raw_desc1_for_eval = patch_raw_desc1[kps1_for_eval_patch_raw]
+    patch_raw_desc2_for_eval = patch_raw_desc2[kps2_for_eval_patch_raw]
 
-    desc_distance_patch1 = [cv.norm(patch1_desc1_for_eval[i],patch1_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch1_desc2_for_eval.shape[0])]
-    desc_distance_patch2 = [cv.norm(patch2_desc1_for_eval[i],patch2_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch2_desc2_for_eval.shape[0])]
+    desc_distance_patch_cano = [cv.norm(patch_cano_desc1_for_eval[i],patch_cano_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch_cano_desc2_for_eval.shape[0])]
+    desc_distance_patch_raw = [cv.norm(patch_raw_desc1_for_eval[i],patch_raw_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch_raw_desc2_for_eval.shape[0])]
+
+    distance_cano.append(desc_distance_patch_cano)
+    distance_raw.append(desc_distance_patch_raw)
+    cano_correct.append(len(patch_cano_correct))
+    cano_matched.append(len(patch_cano_good))
+    raw_correct.append(len(patch_raw_correct))
+    raw_matched.append(len(patch_raw_good))
 
     plt.figure()
-    plt.plot(desc_distance_patch1, label = str(patch1.is_canonical))
-    plt.plot(desc_distance_patch2, label = str(patch2.is_canonical))
+    plt.plot(desc_distance_patch_cano, label = 'canonical')
+    plt.plot(desc_distance_patch_raw, label = 'raw')
     plt.legend()
     # find the intersection of the four lists' pos
 
 plt.show()
+distance_cano_1d = sum(distance_cano,[])
+distance_raw_1d = sum(distance_raw,[])
+decrease = np.array(distance_raw_1d) - np.array(distance_cano_1d)
+np.count_nonzero(decrease > 0)
+len(decrease)
 
-for filename in os.listdir(patch_outpath):
-    with open(os.path.join(patch_outpath, filename), 'rb') as f:
-        patch = pickle.load(f)
+# for filename in os.listdir(patch_outpath):
+#     with open(os.path.join(patch_outpath, filename), 'rb') as f:
+#         patch = pickle.load(f)
     
-    if patch.annotated_keypoints1.shape[0] != patch.annotated_keypoints2.shape[0]:
-        print(f'Keypoints number not equal!!!')
-        continue
+#     if patch.annotated_keypoints1.shape[0] != patch.annotated_keypoints2.shape[0]:
+#         print(f'Keypoints number not equal!!!')
+#         continue
     
-    orb = cv.ORB_create()
-    annotated_kps1, desc1, patch1_normalized = compute_desc_at_annotated_locations(patch.sss_waterfall_image1, patch.annotated_keypoints1, orb, kp_size=16)
-    annotated_kps2, desc2, patch2_normalized = compute_desc_at_annotated_locations(patch.sss_waterfall_image1, patch.annotated_keypoints2, orb, kp_size=16)
-    # if desc1.shape[0] != patch.annotated_keypoints1.shape[0] or desc2.shape[0] != patch.annotated_keypoints2.shape[0]:
-    #     print(f'Keypoints cannot be computed!!!')
-    #     continue
+#     orb = cv.ORB_create()
+#     annotated_kps1, desc1, patch1_normalized = compute_desc_at_annotated_locations(patch.sss_waterfall_image1, patch.annotated_keypoints1, orb, kp_size=16)
+#     annotated_kps2, desc2, patch2_normalized = compute_desc_at_annotated_locations(patch.sss_waterfall_image1, patch.annotated_keypoints2, orb, kp_size=16)
+#     # if desc1.shape[0] != patch.annotated_keypoints1.shape[0] or desc2.shape[0] != patch.annotated_keypoints2.shape[0]:
+#     #     print(f'Keypoints cannot be computed!!!')
+#     #     continue
     
-    '''
-    pt = [[annotated_kps1[i].pt[1], annotated_kps1[i].pt[0]] for i in range(len(annotated_kps1))]
-    can get the pos of kps and cv2.KeyPoint kps
-    Long list:  A
-    Sub list: B, C
-    use A.index(B) to get the sub index?
-    By comparing pos, we can map A to B and C by bool list, then get the bool list of A's kps in B and C
-    But how to map the bool list of A to B and C?
-    how to get the index of same kps of 2 cv2.KeyPoint list?
-    '''
+#     '''
+#     pt = [[annotated_kps1[i].pt[1], annotated_kps1[i].pt[0]] for i in range(len(annotated_kps1))]
+#     can get the pos of kps and cv2.KeyPoint kps
+#     Long list:  A
+#     Sub list: B, C
+#     use A.index(B) to get the sub index?
+#     By comparing pos, we can map A to B and C by bool list, then get the bool list of A's kps in B and C
+#     But how to map the bool list of A to B and C?
+#     how to get the index of same kps of 2 cv2.KeyPoint list?
+#     '''
     
-    # distance = [cv.norm(desc1[i],desc2[i],cv.NORM_HAMMING) for i in range(desc1.shape[0])]
-    # plt.figure()
-    # plt.plot(distance)
-    # plt.title(filename)
+#     # distance = [cv.norm(desc1[i],desc2[i],cv.NORM_HAMMING) for i in range(desc1.shape[0])]
+#     # plt.figure()
+#     # plt.plot(distance)
+#     # plt.title(filename)
 
-    cano_matches = bf.knnMatch(desc1, desc2, k=2)
+#     cano_matches = bf.knnMatch(desc1, desc2, k=2)
 
-    # Apply ratio test
-    cano_good = []
+#     # Apply ratio test
+#     cano_good = []
 
-    for m,n in cano_matches:
-        if m.distance < lowe_ratio*n.distance:
-            cano_good.append([m])
-    score_cano = len(cano_good) / max(len(desc1), len(desc2))
-    print(f'Score, {score_cano}...... Is canonical, {patch.is_canonical}')
+#     for m,n in cano_matches:
+#         if m.distance < lowe_ratio*n.distance:
+#             cano_good.append([m])
+#     score_cano = len(cano_good) / max(len(desc1), len(desc2))
+#     print(f'Score, {score_cano}...... Is canonical, {patch.is_canonical}')
 
-    for i in range(len(cano_good)):
-        cano_good[i][0].trainIdx = cano_good[i][0].queryIdx
-    cano_matched_img = cv.drawMatchesKnn(patch1_normalized,annotated_kps1,patch2_normalized,annotated_kps2,cano_good, None, flags=2)
-    plt.figure()
-    plt.imshow(cano_matched_img)
+#     for i in range(len(cano_good)):
+#         cano_good[i][0].trainIdx = cano_good[i][0].queryIdx
+#     cano_matched_img = cv.drawMatchesKnn(patch1_normalized,annotated_kps1,patch2_normalized,annotated_kps2,cano_good, None, flags=2)
+#     plt.figure()
+#     plt.imshow(cano_matched_img)
  
-plt.show()
+# plt.show()
 
 
 # patch_path  = '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/patch240_step40_test0.1_refSSH-0170/test/patch50_SSH-0170_pings_1180to1420_bins_0to1301_isport_False.pkl'
