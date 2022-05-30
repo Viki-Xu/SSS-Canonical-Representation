@@ -15,20 +15,20 @@ from sss_annotation.sss_correspondence_finder import SSSFolderAnnotator
 from AlongTrack_Deconvolution import canonical_trans
 import cv2 as cv
 
-path1 = '/home/weiqi/Canonical Correction/ssh171/ssh171_raw.npy'
-path2 = '/home/weiqi/Canonical Correction/ssh171/ssh172_raw.npy'
+path1 = '/home/weiqi/Canonical Correction/ssh174/ssh174_raw.npy'
+path2 = '/home/weiqi/Canonical Correction/ssh174/ssh170_raw.npy'
 
-canonical_path1 = '/home/weiqi/Canonical Correction/ssh171/ssh171_canonical.npy'
-canonical_path2 = '/home/weiqi/Canonical Correction/ssh171/ssh172_canonical.npy'
+canonical_path1 = '/home/weiqi/Canonical Correction/ssh174/ssh174_canonical.npy'
+canonical_path2 = '/home/weiqi/Canonical Correction/ssh174/ssh170_canonical.npy'
 
-xtf_file1 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0171-l02s01-20210210-112129.XTF"
-xtf_file2 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0172-l03s01-20210210-112929.XTF"
+xtf_file1 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0174-l05s01-20210210-114538.XTF"
+xtf_file2 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0170-l01s01-20210210-111341.XTF"
 
 draping_res_folder = '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/9-0169to0182-nbr_pings-5204'
-annotator = SSSFolderAnnotator(draping_res_folder, '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0171/correspondence_annotations_SSH-0171.json')
+annotator = SSSFolderAnnotator(draping_res_folder, '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0174/correspondence_annotations_SSH-0174.json')
 
-filename1 = 'SSH-0171-l02s01-20210210-112129.cereal'
-filename2 = 'SSH-0172-l03s01-20210210-112929.cereal'
+filename1 = 'SSH-0174-l05s01-20210210-114538.cereal'
+filename2 = 'SSH-0170-l01s01-20210210-111341.cereal'
 
 matched_kps1 = []
 matched_kps2 = []
@@ -52,7 +52,7 @@ np.save(canonical_path1, canonical_img1)
 np.save(canonical_path2, canonical_img2)
 
 patch_size = 500
-patch_outpath = '/home/weiqi/Canonical Correction/ssh171/patch_pairs/ssh172'
+patch_outpath = '/home/weiqi/Canonical Correction/ssh174/patch_pairs/ssh170'
 
 generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
 generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonical_kps2, True, patch_size, patch_outpath)
@@ -86,9 +86,9 @@ for i in range(number_of_pair):
     with open(os.path.join(patch_outpath, patch_comparision[i,2]), 'rb') as f2:
         patch2= pickle.load(f2)
     
-    if len(patch1.annotated_keypoints1) != len(patch2.annotated_keypoints1):
-        print(f'Canonical and raw kypoints number not equal!!!')
-        continue
+    # if len(patch1.annotated_keypoints1) != len(patch2.annotated_keypoints1):
+    #     print(f'Canonical and raw kypoints number not equal!!!')
+    #     continue
 
     if patch1.is_canonical:
         patch_cano = patch1
@@ -99,7 +99,7 @@ for i in range(number_of_pair):
     
     orb = cv.ORB_create()
 
-    if not(patch_cano.sss_waterfall_image1.shape[0] and patch_cano.sss_waterfall_image2.shape[0] and patch_raw.sss_waterfall_image1.shape[0] and patch_raw.sss_waterfall_image2.shape[0]):
+    if not(patch_cano.sss_waterfall_image1.size and patch_cano.sss_waterfall_image2.size and patch_raw.sss_waterfall_image1.size and patch_raw.sss_waterfall_image2.size):
         print(f'Patch img does not exit!!!')
         continue
 
@@ -162,47 +162,47 @@ for i in range(number_of_pair):
     plt.imshow(patch_raw_matched_img)
     plt.title('raw' + patch_comparision[i,0])
 
-    pt_patch_cano_img1 = np.array([[patch_cano_annotated_kps1[i].pt[1], patch_cano_annotated_kps1[i].pt[0]] for i in range(len(patch_cano_annotated_kps1))]).astype(np.float32)
-    pt_patch_cano_img2 = np.array([[patch_cano_annotated_kps2[i].pt[1], patch_cano_annotated_kps2[i].pt[0]] for i in range(len(patch_cano_annotated_kps2))]).astype(np.float32)
-    pt_patch_raw_img1 = np.array([[patch_raw_annotated_kps1[i].pt[1], patch_raw_annotated_kps1[i].pt[0]] for i in range(len(patch_raw_annotated_kps1))]).astype(np.float32)
-    pt_patch_raw_img2 = np.array([[patch_raw_annotated_kps2[i].pt[1], patch_raw_annotated_kps2[i].pt[0]] for i in range(len(patch_raw_annotated_kps2))]).astype(np.float32)
+    # pt_patch_cano_img1 = np.array([[patch_cano_annotated_kps1[i].pt[1], patch_cano_annotated_kps1[i].pt[0]] for i in range(len(patch_cano_annotated_kps1))]).astype(np.float32)
+    # pt_patch_cano_img2 = np.array([[patch_cano_annotated_kps2[i].pt[1], patch_cano_annotated_kps2[i].pt[0]] for i in range(len(patch_cano_annotated_kps2))]).astype(np.float32)
+    # pt_patch_raw_img1 = np.array([[patch_raw_annotated_kps1[i].pt[1], patch_raw_annotated_kps1[i].pt[0]] for i in range(len(patch_raw_annotated_kps1))]).astype(np.float32)
+    # pt_patch_raw_img2 = np.array([[patch_raw_annotated_kps2[i].pt[1], patch_raw_annotated_kps2[i].pt[0]] for i in range(len(patch_raw_annotated_kps2))]).astype(np.float32)
 
-    if not(len(pt_patch_cano_img1) and len(pt_patch_cano_img2) and len(pt_patch_raw_img1) and len(pt_patch_raw_img2)):
-        print(f'No kps kept in descriptor!!!')
-        continue
+    # if not(len(pt_patch_cano_img1) and len(pt_patch_cano_img2) and len(pt_patch_raw_img1) and len(pt_patch_raw_img2)):
+    #     print(f'No kps kept in descriptor!!!')
+    #     continue
 
-    kept_pt1_patch_cano, _ = multidim_intersect(patch_cano.annotated_keypoints1, pt_patch_cano_img1)
-    kept_pt2_patch_cano, _ = multidim_intersect(patch_cano.annotated_keypoints2, pt_patch_cano_img2)
-    kept_pt1_patch_raw, _ = multidim_intersect(patch_raw.annotated_keypoints1, pt_patch_raw_img1)
-    kept_pt2_patch_raw, _ = multidim_intersect(patch_raw.annotated_keypoints2, pt_patch_raw_img2)
+    # kept_pt1_patch_cano, _ = multidim_intersect(patch_cano.annotated_keypoints1, pt_patch_cano_img1)
+    # kept_pt2_patch_cano, _ = multidim_intersect(patch_cano.annotated_keypoints2, pt_patch_cano_img2)
+    # kept_pt1_patch_raw, _ = multidim_intersect(patch_raw.annotated_keypoints1, pt_patch_raw_img1)
+    # kept_pt2_patch_raw, _ = multidim_intersect(patch_raw.annotated_keypoints2, pt_patch_raw_img2)
 
-    intersected_kps = kept_pt1_patch_cano * kept_pt1_patch_raw * kept_pt2_patch_cano * kept_pt2_patch_raw
+    # intersected_kps = kept_pt1_patch_cano * kept_pt1_patch_raw * kept_pt2_patch_cano * kept_pt2_patch_raw
 
-    _, kps1_for_eval_patch_cano = multidim_intersect(patch_cano.annotated_keypoints1[intersected_kps], pt_patch_cano_img1)
-    _, kps2_for_eval_patch_cano = multidim_intersect(patch_cano.annotated_keypoints2[intersected_kps], pt_patch_cano_img2)
-    _, kps1_for_eval_patch_raw = multidim_intersect(patch_raw.annotated_keypoints1[intersected_kps], pt_patch_raw_img1)
-    _, kps2_for_eval_patch_raw = multidim_intersect(patch_raw.annotated_keypoints2[intersected_kps], pt_patch_raw_img2)
+    # _, kps1_for_eval_patch_cano = multidim_intersect(patch_cano.annotated_keypoints1[intersected_kps], pt_patch_cano_img1)
+    # _, kps2_for_eval_patch_cano = multidim_intersect(patch_cano.annotated_keypoints2[intersected_kps], pt_patch_cano_img2)
+    # _, kps1_for_eval_patch_raw = multidim_intersect(patch_raw.annotated_keypoints1[intersected_kps], pt_patch_raw_img1)
+    # _, kps2_for_eval_patch_raw = multidim_intersect(patch_raw.annotated_keypoints2[intersected_kps], pt_patch_raw_img2)
 
-    patch_cano_desc1_for_eval = patch_cano_desc1[kps1_for_eval_patch_cano]
-    patch_cano_desc2_for_eval = patch_cano_desc2[kps2_for_eval_patch_cano]
-    patch_raw_desc1_for_eval = patch_raw_desc1[kps1_for_eval_patch_raw]
-    patch_raw_desc2_for_eval = patch_raw_desc2[kps2_for_eval_patch_raw]
+    # patch_cano_desc1_for_eval = patch_cano_desc1[kps1_for_eval_patch_cano]
+    # patch_cano_desc2_for_eval = patch_cano_desc2[kps2_for_eval_patch_cano]
+    # patch_raw_desc1_for_eval = patch_raw_desc1[kps1_for_eval_patch_raw]
+    # patch_raw_desc2_for_eval = patch_raw_desc2[kps2_for_eval_patch_raw]
 
-    desc_distance_patch_cano = [cv.norm(patch_cano_desc1_for_eval[i],patch_cano_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch_cano_desc2_for_eval.shape[0])]
-    desc_distance_patch_raw = [cv.norm(patch_raw_desc1_for_eval[i],patch_raw_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch_raw_desc2_for_eval.shape[0])]
+    # desc_distance_patch_cano = [cv.norm(patch_cano_desc1_for_eval[i],patch_cano_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch_cano_desc2_for_eval.shape[0])]
+    # desc_distance_patch_raw = [cv.norm(patch_raw_desc1_for_eval[i],patch_raw_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch_raw_desc2_for_eval.shape[0])]
 
-    distance_cano.append(desc_distance_patch_cano)
-    distance_raw.append(desc_distance_patch_raw)
+    # distance_cano.append(desc_distance_patch_cano)
+    # distance_raw.append(desc_distance_patch_raw)
     cano_correct.append(len(patch_cano_correct))
     cano_matched.append(len(patch_cano_matches))
     raw_correct.append(len(patch_raw_correct))
     raw_matched.append(len(patch_raw_matches))
 
-    plt.figure()
-    plt.plot(desc_distance_patch_cano, label = 'canonical')
-    plt.plot(desc_distance_patch_raw, label = 'raw')
-    plt.legend()
-    # find the intersection of the four lists' pos
+    # plt.figure()
+    # plt.plot(desc_distance_patch_cano, label = 'canonical')
+    # plt.plot(desc_distance_patch_raw, label = 'raw')
+    # plt.legend()
+    # # find the intersection of the four lists' pos
 
 plt.show()
 distance_cano_1d = sum(distance_cano,[])
