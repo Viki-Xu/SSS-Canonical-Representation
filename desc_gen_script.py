@@ -3,8 +3,8 @@ from operator import le
 import string
 import sys
 
-sys.path.append('/home/weiqi/auvlib/scripts')
-sys.path.append('/home/weiqi/Canonical Correction')
+sys.path.append('/home/viki/Master_Thesis/auvlib/scripts')
+sys.path.append('/home/viki/Master_Thesis/SSS-Canonical-Representation')
 
 import os
 import pickle
@@ -15,17 +15,17 @@ from sss_annotation.sss_correspondence_finder import SSSFolderAnnotator
 from AlongTrack_Deconvolution import canonical_trans
 import cv2 as cv
 
-path1 = '/home/weiqi/Canonical Correction/ssh171/ssh171_raw.npy'
-path2 = '/home/weiqi/Canonical Correction/ssh171/ssh172_raw.npy'
+path1 = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh171/ssh171_raw.npy'
+path2 = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh171/ssh172_raw.npy'
 
-canonical_path1 = '/home/weiqi/Canonical Correction/ssh171/ssh171_canonical.npy'
-canonical_path2 = '/home/weiqi/Canonical Correction/ssh171/ssh172_canonical.npy'
+canonical_path1 = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh171/ssh171_canonical.npy'
+canonical_path2 = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh171/ssh172_canonical.npy'
 
-xtf_file1 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0171-l02s01-20210210-112129.XTF"
-xtf_file2 = "/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0172-l03s01-20210210-112929.XTF"
+xtf_file1 = "/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0171-l02s01-20210210-112129.XTF"
+xtf_file2 = "/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0172-l03s01-20210210-112929.XTF"
 
-draping_res_folder = '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/9-0169to0182-nbr_pings-5204'
-annotator = SSSFolderAnnotator(draping_res_folder, '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0171/correspondence_annotations_SSH-0171.json')
+draping_res_folder = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/9-0169to0182-nbr_pings-5204'
+annotator = SSSFolderAnnotator(draping_res_folder, '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0171/correspondence_annotations_SSH-0171.json')
 
 filename1 = 'SSH-0171-l02s01-20210210-112129.cereal'
 filename2 = 'SSH-0172-l03s01-20210210-112929.cereal'
@@ -51,14 +51,16 @@ np.save(path2, raw_img2)
 np.save(canonical_path1, canonical_img1)
 np.save(canonical_path2, canonical_img2)
 
+
+# generate and save patch pairs from raw and cano images
 patch_size = 500
-patch_outpath = '/home/weiqi/Canonical Correction/ssh171/patch_pairs/ssh172'
+patch_outpath = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh171/patch_pairs/ssh172'
 
 generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
 generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonical_kps2, True, patch_size, patch_outpath)
 
 bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
-lowe_ratio = 0.89
+# lowe_ratio = 0.89
 
 number_of_pair = int(len(os.listdir(patch_outpath)) / 2)
 patch_comparision = np.full((number_of_pair, 3), '', dtype=object)
