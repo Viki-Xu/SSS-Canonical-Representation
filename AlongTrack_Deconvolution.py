@@ -57,9 +57,9 @@ def canonical_trans(xtf_file, kps, len_pings = 1301):
     deconvolved_port_pings = port
 
     ########################  Intensity Correction  ###############################
-    data = np.load("/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/EM2040/9-0159toend/mesh/mesh-data-roll0.35.cereal_resolution0.5m.npz")
+    data = np.load("/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/EM2040/9-0159toend/mesh/mesh-data-roll0.35.cereal_resolution0.5m.npz")
     V, F, bounds = data['V'], data['F'], data['bounds']
-    sound_speeds = csv_data.csv_asvp_sound_speed.parse_file("/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/processed_svp.txt")
+    sound_speeds = csv_data.csv_asvp_sound_speed.parse_file("/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/processed_svp.txt")
 
     # initialize a draper object that will accept sidescan pings
     draper = base_draper.BaseDraper(V, F, bounds, sound_speeds)

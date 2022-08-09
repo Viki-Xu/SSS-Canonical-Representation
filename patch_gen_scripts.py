@@ -4,6 +4,10 @@ from itertools import starmap
 import json
 from operator import index
 import os
+import sys
+sys.path.append('/home/viki/Master_Thesis/auvlib/scripts')
+sys.path.append('/home/viki/Master_Thesis/SSS-Canonical-Representation')
+
 import pickle
 import shutil
 from typing import List
@@ -12,9 +16,7 @@ import matplotlib.pyplot as plt
 from Patch import Patch
 import cv2
 from auvlib.bathy_maps.map_draper import sss_meas_data
-import sys
-sys.path.append('/home/weiqi/auvlib/scripts')
-sys.path.append('/home/weiqi/Canonical Correction')
+
 
 def _get_annotated_keypoints_in_patch(path: str, annotations_dir: str,
                                       start_ping: int, end_ping: int,
@@ -153,7 +155,7 @@ def patch_pair_gen(kps1: np.array,
         with open(os.path.join(patch_outpath, patch_filename),
                     'wb') as f:
             pickle.dump(patch, f)
-    return patch
+        return patch
 
 
 def compute_desc_at_annotated_locations(
