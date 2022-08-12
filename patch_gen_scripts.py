@@ -190,7 +190,7 @@ def compute_desc_at_annotated_locations(
         annotated_kps.append([bin_nbr, ping_nbr])
 
     annotated_kps_as_cv2_kp = [
-        cv2.KeyPoint(bin_nbr, ping_nbr, size=kp_size)
+        cv2.KeyPoint(bin_nbr, ping_nbr, _size=kp_size)
         for (bin_nbr, ping_nbr) in annotated_kps
     ]
 

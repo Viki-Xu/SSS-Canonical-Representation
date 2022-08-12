@@ -1,4 +1,5 @@
 from cProfile import label
+from logging.handlers import RotatingFileHandler
 from operator import le
 import string
 import sys
@@ -16,6 +17,7 @@ from AlongTrack_Deconvolution import canonical_trans
 import cv2 as cv
 
 patch_outpath = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh174/patch_pairs/ssh172'
+patch_img_patch = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh174/patch_img/ssh172/patch'
 number_of_pair = int(len(os.listdir(patch_outpath)) / 2)
 patch_comparision = np.full((number_of_pair, 3), '', dtype=object)
 
@@ -48,7 +50,35 @@ for i in range(number_of_pair):
     else:
         patch_cano = patch2
         patch_raw = patch1
+    
+    fig1 = plt.figure(figsize=(8.0, 5.0))
+    axes = []
+    axes.append( fig1.add_subplot(1, 2, 1) )
+    subplot_title=("Canonical image 1, patch"+str(patch_comparision[i,0]))
+    axes[-1].set_title(subplot_title)  
+    plt.imshow(patch_cano.sss_waterfall_image1)
+    axes.append( fig1.add_subplot(1, 2, 2) )
+    subplot_title=("Canonical image 2, patch"+str(patch_comparision[i,0]))
+    axes[-1].set_title(subplot_title)
+    fig1.suptitle('SSH174 vs SSH172')  
+    plt.imshow(patch_cano.sss_waterfall_image2)
+    fig1.savefig(patch_img_patch + str(patch_comparision[i,0]) + '_canonical_img.png')
 
+    fig2 = plt.figure(figsize=(8.0, 5.0))
+    axes = []
+    axes.append( fig2.add_subplot(1, 2, 1) )
+    subplot_title=("Raw image 1, patch"+str(patch_comparision[i,0]))
+    axes[-1].set_title(subplot_title)  
+    plt.imshow(patch_raw.sss_waterfall_image1)
+    axes.append( fig2.add_subplot(1, 2, 2) )
+    subplot_title=("Raw image 2, patch"+str(patch_comparision[i,0]))
+    axes[-1].set_title(subplot_title)  
+    fig2.suptitle('SSH174 vs SSH172')  
+    plt.imshow(patch_raw.sss_waterfall_image2)
+    fig2.savefig(patch_img_patch + str(patch_comparision[i,0]) + '_raw_img.png')
+
+    plt.show()
+    
     corlt_cano = (np.multiply(patch_cano.sss_waterfall_image1, patch_cano.sss_waterfall_image2)).sum() / np.sqrt((np.square(patch_cano.sss_waterfall_image1)).sum()) / np.sqrt((np.square(patch_cano.sss_waterfall_image2)).sum())
     corlt_raw = (np.multiply(patch_raw.sss_waterfall_image1, patch_raw.sss_waterfall_image2)).sum() / np.sqrt((np.square(patch_raw.sss_waterfall_image1)).sum()) / np.sqrt((np.square(patch_raw.sss_waterfall_image2)).sum())
 

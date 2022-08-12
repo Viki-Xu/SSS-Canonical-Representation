@@ -68,7 +68,7 @@ np.save(canonical_path2, canonical_img2)
 
 # generate and save patch pairs from raw and cano images
 patch_size = 500
-patch_outpath = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh174/patch_pairs/ssh172'
+patch_outpath = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh170/patch_pairs/ssh172'
 
 generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
 generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonical_kps2, True, patch_size, patch_outpath)
