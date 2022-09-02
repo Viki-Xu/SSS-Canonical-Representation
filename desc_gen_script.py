@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from patch_gen_scripts import generate_patches_pair, compute_desc_at_annotated_locations, multidim_intersect
 from sss_annotation.sss_correspondence_finder import SSSFolderAnnotator
-from AlongTrack_Deconvolution import canonical_trans
+from canonical_transformation import canonical_trans
 import cv2 as cv
 
 path1 = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh174/ssh174_raw.npy'
@@ -57,8 +57,8 @@ matched_kps1 = np.array(matched_kps1).astype(np.float32)
 matched_kps2 = np.array(matched_kps2).astype(np.float32)
 
 # do canonical transform and save img / kps
-raw_img1, canonical_img1, r1, rg1, rg_bar1, canonical_kps1 = canonical_trans(xtf_file1, matched_kps1, len_pings = 1301)
-raw_img2, canonical_img2, r2, rg2, rg_bar2, canonical_kps2 = canonical_trans(xtf_file2, matched_kps2, len_pings = 1301)
+raw_img1, canonical_img1, r1, rg1, rg_bar1, canonical_kps1 = canonical_trans(xtf_file1, matched_kps1, len_bins = 1301, LambertianModel = "sin_square")
+raw_img2, canonical_img2, r2, rg2, rg_bar2, canonical_kps2 = canonical_trans(xtf_file2, matched_kps2, len_bins = 1301, LambertianModel = "sin_square")
 
 np.save(path1, raw_img1)
 np.save(path2, raw_img2)
