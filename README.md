@@ -7,7 +7,7 @@ Install auvlib according to [instruction](https://github.com/nilsbore/auvlib)
 ## How to use
 1. Prepare the `.npz` mesh file corresponding to the sss images by [auvlib](https://github.com/nilsbore/auvlib). 
 For keypoints canonical transformation, annotations are also needed.
-2. `canonical_trans` imported from `canonical_transformation.py` is all you need to conduct canonical transformation for `.xtf` files (and keypoints, optional).
+2. `canonical_trans` imported from `canonical_transformation.py` is all you need to conduct canonical transformation for `.xtf` files (*and keypoints, optional*).
 3. `Patch` class and script `patch_gen_scripts.py` is used to generated patch pairs which are extracted around same keypoints. 
 This patch pair dataset is used for my thesis' evaluation.
 4. Other scripts are used for similarity evaluation and currently under construction.
