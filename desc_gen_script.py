@@ -32,7 +32,7 @@ xtf_file1 = "/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/
 xtf_file2 = "/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/SSH-0173-l04s01-20210210-113741.XTF"
 
 draping_res_folder = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/9-0169to0182-nbr_pings-5204'
-annotator = SSSFolderAnnotator(draping_res_folder, '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0174/correspondence_annotations_SSH-0174.json')
+annotation_file = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0174/correspondence_annotations_SSH-0174.json'
 
 '''
 SSH-0170-l01s01-20210210-111341.cereal
@@ -43,35 +43,62 @@ SSH-0174-l05s01-20210210-114538.cereal
 '''
 filename1 = 'SSH-0174-l05s01-20210210-114538.cereal'
 filename2 = 'SSH-0173-l04s01-20210210-113741.cereal'
+patch_outpath = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh174/patch_pairs/ssh173'
 
-matched_kps1 = []
-matched_kps2 = []
+def cano_img_gen(
+        path1, path2, canonical_path1, canonical_path2, xtf_file1, xtf_file2, draping_res_folder, annotation_file, filename1, filename2, patch_outpath,
+        mesh_file = "/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/EM2040/9-0159toend/mesh/mesh-data-roll0.35.cereal_resolution0.5m.npz",
+        svp_file = "/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/processed_svp.txt"):
+    '''
+    Generate canonical image and Patch class pairs from given xtf files, annotation and mesh
 
-for kp_id, kp_dict in annotator.annotations_manager.correspondence_annotations.items(
-        ):
-            if filename1 in kp_dict and filename2 in kp_dict:
-                matched_kps1.append(list(kp_dict[filename1]))
-                matched_kps2.append(list(kp_dict[filename2]))
+    Parameters
+    ----------
+    path1/2: str
+        path to save raw sss images as np.array
+    canonical_path1/2: str
+        path to save canonical sss images as np.array
+    xtf_file1/2: str
+        path to xtf files
+    draping_res_folder: str
+        path to draping_res_folder, needed for annotator object
+    annotation_file: str
+        path to annotation
+    filename1/2: str
+        path to the annotated images, needed to obtain mutual kps of image pairs
+    patch_outpath: str
+        path to save patch pairs
+    mesh_file: str
+        corresponding mesh file of the current dataset
+    svp_file: str
+        processed_svp file of the current dataset
+    '''
+    matched_kps1 = []
+    matched_kps2 = []
+    annotator = SSSFolderAnnotator(draping_res_folder, annotation_file)
 
-matched_kps1 = np.array(matched_kps1).astype(np.float32)
-matched_kps2 = np.array(matched_kps2).astype(np.float32)
+    for kp_id, kp_dict in annotator.annotations_manager.correspondence_annotations.items(
+            ):
+                if filename1 in kp_dict and filename2 in kp_dict:
+                    matched_kps1.append(list(kp_dict[filename1]))
+                    matched_kps2.append(list(kp_dict[filename2]))
 
-# do canonical transform and save img / kps
-raw_img1, canonical_img1, r1, rg1, rg_bar1, canonical_kps1 = canonical_trans(xtf_file1, matched_kps1, len_bins = 1301, LambertianModel = "sin_square")
-raw_img2, canonical_img2, r2, rg2, rg_bar2, canonical_kps2 = canonical_trans(xtf_file2, matched_kps2, len_bins = 1301, LambertianModel = "sin_square")
+    matched_kps1 = np.array(matched_kps1).astype(np.float32)
+    matched_kps2 = np.array(matched_kps2).astype(np.float32)
 
-np.save(path1, raw_img1)
-np.save(path2, raw_img2)
-np.save(canonical_path1, canonical_img1)
-np.save(canonical_path2, canonical_img2)
+    # do canonical transform and save img / kps
+    raw_img1, canonical_img1, r1, rg1, rg_bar1, canonical_kps1 = canonical_trans(xtf_file1, matched_kps1, mesh_file, svp_file, len_bins = 1301, LambertianModel = "sin_square")
+    raw_img2, canonical_img2, r2, rg2, rg_bar2, canonical_kps2 = canonical_trans(xtf_file2, matched_kps2, mesh_file, svp_file, len_bins = 1301, LambertianModel = "sin_square")
 
+    np.save(path1, raw_img1)
+    np.save(path2, raw_img2)
+    np.save(canonical_path1, canonical_img1)
+    np.save(canonical_path2, canonical_img2)
 
-# generate and save patch pairs from raw and cano images
-patch_size = 500
-patch_outpath = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh170/patch_pairs/ssh172'
-
-generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
-generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonical_kps2, True, patch_size, patch_outpath)
+    # generate and save patch pairs from raw and cano images
+    patch_size = 500
+    generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
+    generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonical_kps2, True, patch_size, patch_outpath)
 
 # bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
 bf = cv.BFMatcher(cv.NORM_L2)
@@ -132,7 +159,7 @@ for i in range(number_of_pair):
     # patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, sift, kp_size=16)
     # patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, sift, kp_size=16)
 
-    # TODO: generate orb desc, what's the neighbor size?
+    # generate orb desc
     # patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, orb, kp_size=16)
     # patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, orb, kp_size=16)
     # patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, orb, kp_size=16)
@@ -144,7 +171,7 @@ for i in range(number_of_pair):
     # patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, brisk, kp_size=16)
     # patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, brisk, kp_size=16)
 
-    # TODO: generate the FREAK desc maybe?
+    # generate FREAK desc
     # patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, freak, kp_size=16)
     # patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, freak, kp_size=16)
     # patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, freak, kp_size=16)

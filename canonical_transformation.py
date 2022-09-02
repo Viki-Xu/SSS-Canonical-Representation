@@ -11,7 +11,7 @@ from skimage.restoration import richardson_lucy
 import time
 import pdb
 
-def canonical_trans(xtf_file, *keyPoint, len_bins = 1301, LambertianModel = "sin_square"):
+def canonical_trans(xtf_file, *keyPoint, mesh_file, svp_file, len_bins = 1301, LambertianModel = "sin_square"):
     """
     Canonical transformation for sss images and kps.
 
@@ -21,6 +21,11 @@ def canonical_trans(xtf_file, *keyPoint, len_bins = 1301, LambertianModel = "sin
         File path to xtf_data file used for canonical transformation calculation.
     *keyPoint: np.array
         Numpy array which contains kps coordination in this xtf image in the form of [nbr_ping, nbr_bin] for each point.
+    mesh_file, svp_file: str
+        Files to load base_draper and heights for each ping
+        For the "GullmarsfjordSMaRC20210209" dataset, default path in this client is:
+        mesh_file = "/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/EM2040/9-0159toend/mesh/mesh-data-roll0.35.cereal_resolution0.5m.npz",
+        svp_file = "/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/processed_svp.txt"
     len_bins: int
         Number of bins contained in each ping after downsampling. It should be the same as the annotated waterfall image's nbr_bin
     LambertianModel: str
@@ -82,9 +87,9 @@ def canonical_trans(xtf_file, *keyPoint, len_bins = 1301, LambertianModel = "sin
     deconvolved_port_pings = port
 
     ########################  Intensity Correction  ###############################
-    data = np.load("/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/EM2040/9-0159toend/mesh/mesh-data-roll0.35.cereal_resolution0.5m.npz")
+    data = np.load(mesh_file)
     V, F, bounds = data['V'], data['F'], data['bounds']
-    sound_speeds = csv_data.csv_asvp_sound_speed.parse_file("/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/processed_svp.txt")
+    sound_speeds = csv_data.csv_asvp_sound_speed.parse_file(svp_file)
 
     # initialize a draper object that will accept sidescan pings
     draper = base_draper.BaseDraper(V, F, bounds, sound_speeds)

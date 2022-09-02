@@ -13,7 +13,7 @@ import math
 import cv2 as cv
 import argparse
 from PIL import Image
-from AlongTrack_Deconvolution import canonical_trans
+from canonical_transformation import canonical_trans
 from patch_gen_scripts import _get_kps_pos_in_patch, compute_desc_at_annotated_locations
 
 draping_res_folder = '/home/weiqi/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/9-0169to0182-nbr_pings-5204'
