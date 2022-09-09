@@ -19,8 +19,8 @@ def canonical_trans(xtf_file, *keyPoint, mesh_file, svp_file, len_bins = 1301, L
     ----------
     xtf_file: str
         File path to xtf_data file used for canonical transformation calculation.
-    *keyPoint: np.array
-        Numpy array which contains kps coordination in this xtf image in the form of [nbr_ping, nbr_bin] for each point.
+    *keyPoint: np.array, optional
+        Numpy array which contains kps coordination in this downsized xtf image in the form of [nbr_ping, nbr_bin] for each point, whose coordinate system is the same as annotation file.
     mesh_file, svp_file: str
         Files to load base_draper and heights for each ping
         For the "GullmarsfjordSMaRC20210209" dataset, default path in this client is:
