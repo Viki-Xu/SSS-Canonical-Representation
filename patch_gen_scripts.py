@@ -34,7 +34,7 @@ def multidim_intersect(arr1, arr2):
 
 def _get_kps_pos_in_patch(annotated_kps: np.array,
                             start_ping: int,
-                            start_bin: int,) -> np.array:
+                            start_bin: int) -> np.array:
     
     annotated_kps[:,0] -= start_ping
     annotated_kps[:,1] -= start_bin
@@ -215,3 +215,24 @@ def generate_patches_pair(path1: str,
                                         patch_id,
                                         patch_outpath)
             patch_id += 1
+
+
+def patch_rotated(patch: np.array,
+                  kp: np.array):
+    '''
+    Rotate patch image and kps by 180 degree:
+    Size: W, H
+    Transformation: (x,y) -> (W-x, H-y)
+    
+    Parameters:
+    patch: input patch
+    kps: coordinatiors of keypoints in input patch
+
+    Returns:
+    rt_patch: patch rotated 180
+    kps: rotated keypoints
+    '''
+    patch_rtd = np.rot90(patch, 2)
+    height, width = patch_rtd.shape
+    kp_rtd = - kp + np.array([height, width])
+    return patch_rtd, kp_rtd
