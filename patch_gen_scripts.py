@@ -97,6 +97,14 @@ def patch_pair_gen(kps1: np.array,
             pickle.dump(patch, f)
         return patch
 
+def outlier_removal(img: np.array,
+                    a_max: int):
+    '''
+    Remove outlier intensity: divided by img.mean and remove intensity which is bigger than 3
+    '''
+    img_normalized = img / img.mean()
+    clipped_img = np.clip(img_normalized, a_min=0, a_max=a_max)
+    return clipped_img*img.mean()
 
 def compute_desc_at_annotated_locations(
         img: np.array,
@@ -134,7 +142,9 @@ def compute_desc_at_annotated_locations(
         for (bin_nbr, ping_nbr) in annotated_kps
     ]
 
-    normalized_8bit_img = cv2.normalize(img, None, 0, 255,
+    img_corrected = outlier_removal(img, 3)
+
+    normalized_8bit_img = cv2.normalize(img_corrected, None, 0, 255,
                                         cv2.NORM_MINMAX).astype('uint8')
     annotated_kps_as_cv2_kp, desc = algo.compute(normalized_8bit_img,
                                                  annotated_kps_as_cv2_kp)
