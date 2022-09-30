@@ -110,6 +110,7 @@ def compute_desc_at_annotated_locations(
         img: np.array,
         kps: np.array,
         algo: cv2.Feature2D,
+        amax: int,
         kp_size: int = 16):
     """Compute traditional descriptors using OpenCV's cv2.Feature2D class for a given Patch.
 
@@ -120,6 +121,8 @@ def compute_desc_at_annotated_locations(
         the patch.
     algo: cv2.Feature2D
         A Feature2D instance from cv2 used to compute the descriptors. e.g. SIFT, SURF, ORB.
+    amax: int
+        The max values threshold for otlier removal in  intensity
     kp_size: int = 16
         The diameter of the neighbourhood to be included in the descriptor computation of a given
         keypoint.
@@ -142,7 +145,7 @@ def compute_desc_at_annotated_locations(
         for (bin_nbr, ping_nbr) in annotated_kps
     ]
 
-    img_corrected = outlier_removal(img, 3)
+    img_corrected = outlier_removal(img, amax)
 
     normalized_8bit_img = cv2.normalize(img_corrected, None, 0, 255,
                                         cv2.NORM_MINMAX).astype('uint8')
