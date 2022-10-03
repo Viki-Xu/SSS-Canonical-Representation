@@ -10,7 +10,7 @@ import os
 import pickle
 from matplotlib import pyplot as plt
 import numpy as np
-from patch_gen_scripts import generate_patches_pair, compute_desc_at_annotated_locations, multidim_intersect
+from patch_gen_scripts import generate_patches_pair, compute_desc_at_annotated_locations, patch_rotated
 from sss_annotation.sss_correspondence_finder import SSSFolderAnnotator
 from canonical_transformation import canonical_trans
 import cv2 as cv
@@ -43,7 +43,7 @@ SSH-0174-l05s01-20210210-114538.cereal
 '''
 filename1 = 'SSH-0174-l05s01-20210210-114538.cereal'
 filename2 = 'SSH-0173-l04s01-20210210-113741.cereal'
-patch_outpath = '/home/viki/Master_Thesis/SSS-Canonical-Representation/ssh174/patch_pairs/ssh173'
+patch_outpath = '/home/viki/Master_Thesis/SSS-Canonical-Representation/data/ssh170/patch_pairs/ssh171'
 
 def cano_img_gen(
         path1, path2, canonical_path1, canonical_path2, xtf_file1, xtf_file2, draping_res_folder, annotation_file, filename1, filename2, patch_outpath,
@@ -100,198 +100,155 @@ def cano_img_gen(
     generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
     generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonical_kps2, True, patch_size, patch_outpath)
 
-# bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
-bf = cv.BFMatcher(cv.NORM_L2)
-# bf = cv.BFMatcher()
-lowe_ratio = 0.89
-surf_ratio = 0.8
 
-number_of_pair = int(len(os.listdir(patch_outpath)) / 2)
-patch_comparision = np.full((number_of_pair, 3), '', dtype=object)
-distance_cano = []
-distance_raw = []
-cano_correct = []
-raw_correct = []
-cano_matched = []
-raw_matched = []
+def desc_evaluation(patch_outpath, matcher, descType, rotate, cano_match, raw_match):
+    '''
+    Conduct evaluation based on desc matching for one set of patch pairs: sss17x-sss17y
+    '''
+    number_of_pair = int(len(os.listdir(patch_outpath)) / 2)
+    patch_comparision = np.full((number_of_pair, 3), '', dtype=object)
+    cano_correct = []
+    raw_correct = []
+    cano_matched = []
+    raw_matched = []
 
-# get the raw and canonical patch pairs stored in the same patch no
-for filename in os.listdir(patch_outpath):
-    patch_no = filename.split('_')[0]
-    if not patch_no in patch_comparision:
-        ind = np.argwhere(patch_comparision[:,0] == '')[0][0]
-        patch_comparision[ind, 0] = patch_no
-        patch_comparision[ind, 1] = filename
-    else:
-        ind = np.argwhere(patch_comparision[:,0] == patch_no)[0][0]
-        patch_comparision[ind, 2] = filename
+    # get the raw and canonical patch pairs stored in the same patch no
+    for filename in os.listdir(patch_outpath):
+        patch_no = filename.split('_')[0]
+        if not patch_no in patch_comparision:
+            ind = np.argwhere(patch_comparision[:,0] == '')[0][0]
+            patch_comparision[ind, 0] = patch_no
+            patch_comparision[ind, 1] = filename
+        else:
+            ind = np.argwhere(patch_comparision[:,0] == patch_no)[0][0]
+            patch_comparision[ind, 2] = filename
 
-for i in range(number_of_pair):
-    with open(os.path.join(patch_outpath, patch_comparision[i,1]), 'rb') as f1:
-        patch1= pickle.load(f1)
-    with open(os.path.join(patch_outpath, patch_comparision[i,2]), 'rb') as f2:
-        patch2= pickle.load(f2)
-    
-    # if len(patch1.annotated_keypoints1) != len(patch2.annotated_keypoints1):
-    #     print(f'Canonical and raw kypoints number not equal!!!')
-    #     continue
+    for i in range(number_of_pair):
+        with open(os.path.join(patch_outpath, patch_comparision[i,1]), 'rb') as f1:
+            patch1= pickle.load(f1)
+        with open(os.path.join(patch_outpath, patch_comparision[i,2]), 'rb') as f2:
+            patch2= pickle.load(f2)
+        
+        # if len(patch1.annotated_keypoints1) != len(patch2.annotated_keypoints1):
+        #     print(f'Canonical and raw kypoints number not equal!!!')
+        #     continue
 
-    if patch1.is_canonical:
-        patch_cano = patch1
-        patch_raw = patch2
-    else:
-        patch_cano = patch2
-        patch_raw = patch1
-    
-    sift = cv.SIFT_create()
-    orb = cv.ORB_create()
-    brisk = cv.BRISK_create()
-    freak = cv.xfeatures2d.FREAK_create()
-    surf = cv.xfeatures2d.SURF_create()
+        if patch1.is_canonical:
+            patch_cano = patch1
+            patch_raw = patch2
+        else:
+            patch_cano = patch2
+            patch_raw = patch1
+        
+        DescDict = {
+            "sift": [cv.SIFT_create(), 0.89],
+            "orb": [cv.ORB_create()],
+            "brisk": [cv.BRISK_create()],
+            "freak": [cv.xfeatures2d.FREAK_create()],
+            "surf": [cv.xfeatures2d.SURF_create(), 0.8]
+        }
+        desc = DescDict.get(descType)
 
-    if not(patch_cano.sss_waterfall_image1.size and patch_cano.sss_waterfall_image2.size and patch_raw.sss_waterfall_image1.size and patch_raw.sss_waterfall_image2.size):
-        print(f'Patch img does not exit!!!')
-        continue
-    
-    # generate sift desc
-    # patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, sift, kp_size=16)
-    # patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, sift, kp_size=16)
-    # patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, sift, kp_size=16)
-    # patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, sift, kp_size=16)
+        if not(patch_cano.sss_waterfall_image1.size and patch_cano.sss_waterfall_image2.size and patch_raw.sss_waterfall_image1.size and patch_raw.sss_waterfall_image2.size):
+            print(f'Patch img does not exit!!!')
+            continue
+        canomax = 2.1
+        rawmax = 3
 
-    # generate orb desc
-    # patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, orb, kp_size=16)
-    # patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, orb, kp_size=16)
-    # patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, orb, kp_size=16)
-    # patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, orb, kp_size=16)
+        # generate desc
+        if not rotate:
+            patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, desc[0], canomax, kp_size=16)
+            patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, desc[0], canomax, kp_size=16)
+            patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, desc[0], rawmax, kp_size=16)
+            patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, desc[0], rawmax, kp_size=16)
+        else:
+            patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, desc[0], canomax, kp_size=16)
+            rotated_cano_img2, rotated_cano_kps2 = patch_rotated(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2)
+            patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(rotated_cano_img2, rotated_cano_kps2, desc[0], canomax, kp_size=16)
+            
+            patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, desc[0], rawmax, kp_size=16)
+            rotated_raw_img2, rotated_raw_kps2 = patch_rotated(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2)
+            patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(rotated_raw_img2, rotated_raw_kps2, desc[0], rawmax, kp_size=16)
+        
+        if matcher == "Matcher":
+            bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
+            patch_cano_correct = []
+            patch_raw_correct = []
+            patch_cano_matches = bf.match(patch_cano_desc1,patch_cano_desc2)
+            patch_raw_matches = bf.match(patch_raw_desc1,patch_raw_desc2)
+            for k in patch_cano_matches:
+                if k.trainIdx == k.queryIdx:
+                    patch_cano_correct.append(k)
+            # if len(patch_cano_matches) > 0:
+            #     accuracy_patch_cano = len(patch_cano_correct) / len(patch_cano_matches)
+            #     print(f'Canonical accuracy, {accuracy_patch_cano}...... Correct, {len(patch_cano_correct)}...... Matched, {len(patch_cano_matches)}...... Patch no, {patch_comparision[i,0]}')
 
-    # generate brisk desc
-    # patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, brisk, kp_size=16)
-    # patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, brisk, kp_size=16)
-    # patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, brisk, kp_size=16)
-    # patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, brisk, kp_size=16)
+            for k in patch_raw_matches:
+                if k.trainIdx == k.queryIdx:
+                    patch_raw_correct.append(k)
+            # if len(patch_raw_matches) > 0:
+            #     accuracy_patch_raw = len(patch_raw_correct) / len(patch_raw_matches)
+            #     print(f'Raw accuracy, {accuracy_patch_raw}...... Correct, {len(patch_raw_correct)}...... Matched, {len(patch_raw_matches)}...... Patch no, {patch_comparision[i,0]}')
+            cano_correct.append(len(patch_cano_correct))
+            cano_matched.append(len(patch_cano_matches))
+            raw_correct.append(len(patch_raw_correct))
+            raw_matched.append(len(patch_raw_matches))
 
-    # generate FREAK desc
-    # patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, freak, kp_size=16)
-    # patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, freak, kp_size=16)
-    # patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, freak, kp_size=16)
-    # patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, freak, kp_size=16)
+        else:
+            bf = cv.BFMatcher(cv.NORM_L2)
+            ratio = desc[1]
+            patch_cano_matches = bf.knnMatch(patch_cano_desc1, patch_cano_desc2, k=2)
+            patch_raw_matches = bf.knnMatch(patch_raw_desc1, patch_raw_desc2, k=2)
+            patch_cano_good = []
+            patch_cano_correct = []
+            patch_raw_good = []
+            patch_raw_correct = []
 
-    # generate surf desc
-    patch_cano_annotated_kps1, patch_cano_desc1, patch_cano_img1_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image1, patch_cano.annotated_keypoints1, surf, kp_size=20)
-    patch_cano_annotated_kps2, patch_cano_desc2, patch_cano_img2_normalized = compute_desc_at_annotated_locations(patch_cano.sss_waterfall_image2, patch_cano.annotated_keypoints2, surf, kp_size=20)
-    patch_raw_annotated_kps1, patch_raw_desc1, patch_raw_img1_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image1, patch_raw.annotated_keypoints1, surf, kp_size=20)
-    patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2, surf, kp_size=20)
+            if len(patch_cano_matches) > 1:
+                for m,n in patch_cano_matches:
+                    if m.distance < ratio*n.distance:
+                        patch_cano_good.append([m])
+                for k in patch_cano_good:
+                    if k[0].trainIdx == k[0].queryIdx:
+                        patch_cano_correct.append(k[0])
+                # if len(patch_cano_good) > 0:
+                #     accuracy_patch_cano = len(patch_cano_correct) / len(patch_cano_good)
+                    # print(f'Canonical accuracy, {accuracy_patch_cano}...... Correct, {len(patch_cano_correct)}...... Matched, {len(patch_cano_good)}...... Patch no, {patch_comparision[i,0]}')
 
-    patch_cano_matches = bf.knnMatch(patch_cano_desc1, patch_cano_desc2, k=2)
-    patch_raw_matches = bf.knnMatch(patch_raw_desc1, patch_raw_desc2, k=2)
-    # patch_cano_matches = bf.match(patch_cano_desc1,patch_cano_desc2)
-    # patch_raw_matches = bf.match(patch_raw_desc1,patch_raw_desc2)
-    # Apply ratio test
-    patch_cano_good = []
-    patch_cano_correct = []
-    patch_raw_good = []
-    patch_raw_correct = []
+            if len(patch_raw_matches) > 1:
+                for m,n in patch_raw_matches:
+                    if m.distance < ratio*n.distance:
+                        patch_raw_good.append([m])
+                for k in patch_raw_good:
+                    if k[0].trainIdx == k[0].queryIdx:
+                        patch_raw_correct.append(k[0])
+                # if len(patch_raw_good) > 0:
+                #     accuracy_patch_raw = len(patch_raw_correct) / len(patch_raw_good)
+                #     print(f'Raw accuracy, {accuracy_patch_raw}...... Correct, {len(patch_raw_correct)}...... Matched, {len(patch_raw_good)}...... Patch no, {patch_comparision[i,0]}')
+            
+            # patch_cano_matched_img = cv.drawMatchesKnn(patch_cano_img1_normalized,patch_cano_annotated_kps1,patch_cano_img2_normalized,patch_cano_annotated_kps2,patch_cano_good, None, flags=2)
+            # # patch_cano_matched_img = cv.drawMatches(patch_cano_img1_normalized,patch_cano_annotated_kps1,patch_cano_img2_normalized,patch_cano_annotated_kps2,patch_cano_matches, None, flags=2)
+            # plt.figure()
+            # plt.title('canonical' + patch_comparision[i,0])
+            # plt.imshow(patch_cano_matched_img)
 
-    #########  BFMatcher with ORB / BRISK / FREAK desc  ##########
-    # for k in patch_cano_matches:
-    #     if k.trainIdx == k.queryIdx:
-    #         patch_cano_correct.append(k)
-    # if len(patch_cano_matches) > 0:
-    #     accuracy_patch_cano = len(patch_cano_correct) / len(patch_cano_matches)
-    #     print(f'Canonical accuracy, {accuracy_patch_cano}...... Correct, {len(patch_cano_correct)}...... Matched, {len(patch_cano_matches)}...... Patch no, {patch_comparision[i,0]}')
+            # patch_raw_matched_img = cv.drawMatchesKnn(patch_raw_img1_normalized,patch_raw_annotated_kps1,patch_raw_img2_normalized,patch_raw_annotated_kps2,patch_raw_good, None, flags=2)
+            # # patch_raw_matched_img = cv.drawMatches(patch_raw_img1_normalized,patch_raw_annotated_kps1,patch_raw_img2_normalized,patch_raw_annotated_kps2,patch_raw_matches, None, flags=2)
+            # plt.figure()
+            # plt.imshow(patch_raw_matched_img)
+            # plt.title('raw' + patch_comparision[i,0])
 
-    # for k in patch_raw_matches:
-    #     if k.trainIdx == k.queryIdx:
-    #         patch_raw_correct.append(k)
-    # if len(patch_raw_matches) > 0:
-    #     accuracy_patch_raw = len(patch_raw_correct) / len(patch_raw_matches)
-    #     print(f'Raw accuracy, {accuracy_patch_raw}...... Correct, {len(patch_raw_correct)}...... Matched, {len(patch_raw_matches)}...... Patch no, {patch_comparision[i,0]}')
-    
-    #########  BFMatcher with SIFT / SURF desc  ##########
-    if len(patch_cano_matches) > 1:
-        for m,n in patch_cano_matches:
-            if m.distance < surf_ratio*n.distance:
-                patch_cano_good.append([m])
-        for k in patch_cano_good:
-            if k[0].trainIdx == k[0].queryIdx:
-                patch_cano_correct.append(k[0])
-        if len(patch_cano_good) > 0:
-            accuracy_patch_cano = len(patch_cano_correct) / len(patch_cano_good)
-            print(f'Canonical accuracy, {accuracy_patch_cano}...... Correct, {len(patch_cano_correct)}...... Matched, {len(patch_cano_good)}...... Patch no, {patch_comparision[i,0]}')
+            cano_correct.append(len(patch_cano_correct))
+            cano_matched.append(len(patch_cano_good))
+            raw_correct.append(len(patch_raw_correct))
+            raw_matched.append(len(patch_raw_good))
 
-    if len(patch_raw_matches) > 1:
-        for m,n in patch_raw_matches:
-            if m.distance < surf_ratio*n.distance:
-                patch_raw_good.append([m])
-        for k in patch_raw_good:
-            if k[0].trainIdx == k[0].queryIdx:
-                patch_raw_correct.append(k[0])
-        if len(patch_raw_good) > 0:
-            accuracy_patch_raw = len(patch_raw_correct) / len(patch_raw_good)
-            print(f'Raw accuracy, {accuracy_patch_raw}...... Correct, {len(patch_raw_correct)}...... Matched, {len(patch_raw_good)}...... Patch no, {patch_comparision[i,0]}')
+    # print(f'Raw correct, {sum(raw_correct)}...... Raw matched, {sum(raw_matched)}')
+    # print(f'Cano correct, {sum(cano_correct)}...... Cano matched, {sum(cano_matched)}')
+    # print('#################################')
+    path_sep = patch_outpath.split(os.sep)
+    filename_pair = path_sep[-3] + '-' + path_sep[-1]
+    cano_match.append([sum(cano_correct), sum(cano_matched), descType, filename_pair])
+    raw_match.append([sum(raw_correct), sum(raw_matched), descType, filename_pair])
 
-    patch_cano_matched_img = cv.drawMatchesKnn(patch_cano_img1_normalized,patch_cano_annotated_kps1,patch_cano_img2_normalized,patch_cano_annotated_kps2,patch_cano_good, None, flags=2)
-    # patch_cano_matched_img = cv.drawMatches(patch_cano_img1_normalized,patch_cano_annotated_kps1,patch_cano_img2_normalized,patch_cano_annotated_kps2,patch_cano_matches, None, flags=2)
-    plt.figure()
-    plt.title('canonical' + patch_comparision[i,0])
-    plt.imshow(patch_cano_matched_img)
-
-    patch_raw_matched_img = cv.drawMatchesKnn(patch_raw_img1_normalized,patch_raw_annotated_kps1,patch_raw_img2_normalized,patch_raw_annotated_kps2,patch_raw_good, None, flags=2)
-    # patch_raw_matched_img = cv.drawMatches(patch_raw_img1_normalized,patch_raw_annotated_kps1,patch_raw_img2_normalized,patch_raw_annotated_kps2,patch_raw_matches, None, flags=2)
-    plt.figure()
-    plt.imshow(patch_raw_matched_img)
-    plt.title('raw' + patch_comparision[i,0])
-
-    # pt_patch_cano_img1 = np.array([[patch_cano_annotated_kps1[i].pt[1], patch_cano_annotated_kps1[i].pt[0]] for i in range(len(patch_cano_annotated_kps1))]).astype(np.float32)
-    # pt_patch_cano_img2 = np.array([[patch_cano_annotated_kps2[i].pt[1], patch_cano_annotated_kps2[i].pt[0]] for i in range(len(patch_cano_annotated_kps2))]).astype(np.float32)
-    # pt_patch_raw_img1 = np.array([[patch_raw_annotated_kps1[i].pt[1], patch_raw_annotated_kps1[i].pt[0]] for i in range(len(patch_raw_annotated_kps1))]).astype(np.float32)
-    # pt_patch_raw_img2 = np.array([[patch_raw_annotated_kps2[i].pt[1], patch_raw_annotated_kps2[i].pt[0]] for i in range(len(patch_raw_annotated_kps2))]).astype(np.float32)
-
-    # if not(len(pt_patch_cano_img1) and len(pt_patch_cano_img2) and len(pt_patch_raw_img1) and len(pt_patch_raw_img2)):
-    #     print(f'No kps kept in descriptor!!!')
-    #     continue
-
-    # kept_pt1_patch_cano, _ = multidim_intersect(patch_cano.annotated_keypoints1, pt_patch_cano_img1)
-    # kept_pt2_patch_cano, _ = multidim_intersect(patch_cano.annotated_keypoints2, pt_patch_cano_img2)
-    # kept_pt1_patch_raw, _ = multidim_intersect(patch_raw.annotated_keypoints1, pt_patch_raw_img1)
-    # kept_pt2_patch_raw, _ = multidim_intersect(patch_raw.annotated_keypoints2, pt_patch_raw_img2)
-
-    # intersected_kps = kept_pt1_patch_cano * kept_pt1_patch_raw * kept_pt2_patch_cano * kept_pt2_patch_raw
-
-    # _, kps1_for_eval_patch_cano = multidim_intersect(patch_cano.annotated_keypoints1[intersected_kps], pt_patch_cano_img1)
-    # _, kps2_for_eval_patch_cano = multidim_intersect(patch_cano.annotated_keypoints2[intersected_kps], pt_patch_cano_img2)
-    # _, kps1_for_eval_patch_raw = multidim_intersect(patch_raw.annotated_keypoints1[intersected_kps], pt_patch_raw_img1)
-    # _, kps2_for_eval_patch_raw = multidim_intersect(patch_raw.annotated_keypoints2[intersected_kps], pt_patch_raw_img2)
-
-    # patch_cano_desc1_for_eval = patch_cano_desc1[kps1_for_eval_patch_cano]
-    # patch_cano_desc2_for_eval = patch_cano_desc2[kps2_for_eval_patch_cano]
-    # patch_raw_desc1_for_eval = patch_raw_desc1[kps1_for_eval_patch_raw]
-    # patch_raw_desc2_for_eval = patch_raw_desc2[kps2_for_eval_patch_raw]
-
-    # desc_distance_patch_cano = [cv.norm(patch_cano_desc1_for_eval[i],patch_cano_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch_cano_desc2_for_eval.shape[0])]
-    # desc_distance_patch_raw = [cv.norm(patch_raw_desc1_for_eval[i],patch_raw_desc2_for_eval[i],cv.NORM_HAMMING) for i in range(patch_raw_desc2_for_eval.shape[0])]
-
-    # distance_cano.append(desc_distance_patch_cano)
-    # distance_raw.append(desc_distance_patch_raw)
-    cano_correct.append(len(patch_cano_correct))
-    # cano_matched.append(len(patch_cano_matches))
-    cano_matched.append(len(patch_cano_good))
-    raw_correct.append(len(patch_raw_correct))
-    # raw_matched.append(len(patch_raw_matches))
-    raw_matched.append(len(patch_raw_good))
-
-    # plt.figure()
-    # plt.plot(desc_distance_patch_cano, label = 'canonical')
-    # plt.plot(desc_distance_patch_raw, label = 'raw')
-    # plt.legend()
-    # # find the intersection of the four lists' pos
-
-print(f'Raw correct, {sum(raw_correct)}...... Raw matched, {sum(raw_matched)}')
-print(f'Cano correct, {sum(cano_correct)}...... Cano matched, {sum(cano_matched)}')
-plt.show()
-# distance_cano_1d = sum(distance_cano,[])
-# distance_raw_1d = sum(distance_raw,[])
-# decrease = np.array(distance_raw_1d) - np.array(distance_cano_1d)
-# np.count_nonzero(decrease > 0)
-# len(decrease)
+    return cano_match, raw_match
