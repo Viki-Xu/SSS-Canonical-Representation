@@ -11,7 +11,7 @@ from skimage.restoration import richardson_lucy
 import time
 import pdb
 
-def canonical_trans(xtf_file, *keyPoint, mesh_file, svp_file, len_bins = 1301, LambertianModel = "sin_square"):
+def canonical_trans(xtf_file, mesh_file, svp_file, *keyPoint, deconv=False, len_bins = 1301, LambertianModel = "sin_square"):
     """
     Canonical transformation for sss images and kps.
 
@@ -65,26 +65,29 @@ def canonical_trans(xtf_file, *keyPoint, mesh_file, svp_file, len_bins = 1301, L
 
     ########################  Image Deconvolution  ###############################
 
-    # # Gaussian Beam pattern:
-    # gamma = 0.01  # beam angualr width
-    # n = np.ceil(2 * r * np.tanh(gamma/2) * 2.5).astype(int) # list of beam width in pixel, shape (20816,1)
-    # beam_var = 0.125 * np.power(n, 4) / np.log(2)  # the list of variance of Gaussian distribution, shape (20816,1)
-    # std_var = np.sqrt(beam_var)
-    # mu = 0.5 * n
+    if deconv == True:
+        # Gaussian Beam pattern:
+        gamma = 0.02  # beam angualr width
+        n = np.ceil(2 * r * np.tanh(gamma/2) * 2.5).astype(int) # list of beam width in pixel, shape (20816,1)
+        beam_var = 0.125 * np.power(n, 4) / np.log(2)  # the list of variance of Gaussian distribution, shape (20816,1)
+        std_var = np.sqrt(beam_var)
+        mu = 0.5 * n
+        num_iter = 3
 
-    # # discrete beam pattern / convolution kernel, a 20816 long list, while each element contains an kernel with size (n,1)
-    # psf = [[np.power(norm.cdf(i+1, loc=mu[j], scale=std_var[j]) - norm.cdf(i, mu[j], std_var[j]), 2) for i in range(n[j])] for j in range(len_bins)]
+        # discrete beam pattern / convolution kernel, a 20816 long list, while each element contains an kernel with size (n,1)
+        psf = [[np.power(norm.cdf(i+1, loc=mu[j], scale=std_var[j]) - norm.cdf(i, mu[j], std_var[j]), 2) for i in range(n[j])] for j in range(len_bins)]
 
-    # # deconvolved_pings = np.ndarray(np.shape(pings))
-    # deconvolved_starboard_pings = np.array([richardson_lucy(starboard[:,j], np.array(psf[j]), num_iter, clip=False) for j in range(len_bins)])
-    # deconvolved_port_pings = np.array([richardson_lucy(port[:,j], np.array(psf[j]), num_iter, clip=False) for j in range(len_bins)])
-    # deconvolved_starboard_pings = np.transpose(deconvolved_starboard_pings)
-    # deconvolved_starboard_pings = np.ceil(deconvolved_starboard_pings).astype(int)
-    # deconvolved_port_pings  = np.transpose(deconvolved_port_pings)
-    # deconvolved_port_pings = np.ceil(deconvolved_port_pings).astype(int)
-    # pings = np.concatenate((np.fliplr(deconvolved_starboard_pings),deconvolved_port_pings), axis=1)   # (1870, 41632)
-    deconvolved_starboard_pings = starboard
-    deconvolved_port_pings = port
+        # deconvolved_pings = np.ndarray(np.shape(pings))
+        deconvolved_starboard_pings = np.array([richardson_lucy(starboard[:,j], np.array(psf[j]), num_iter, clip=False) for j in range(len_bins)])
+        deconvolved_port_pings = np.array([richardson_lucy(port[:,j], np.array(psf[j]), num_iter, clip=False) for j in range(len_bins)])
+        deconvolved_starboard_pings = np.transpose(deconvolved_starboard_pings)
+        deconvolved_starboard_pings = np.ceil(deconvolved_starboard_pings).astype(int)
+        deconvolved_port_pings  = np.transpose(deconvolved_port_pings)
+        deconvolved_port_pings = np.ceil(deconvolved_port_pings).astype(int)
+        # pings = np.concatenate((np.fliplr(deconvolved_starboard_pings),deconvolved_port_pings), axis=1)   # (1870, 41632)
+    else:
+        deconvolved_starboard_pings = starboard
+        deconvolved_port_pings = port
 
     ########################  Intensity Correction  ###############################
     data = np.load(mesh_file)
