@@ -118,7 +118,7 @@ def cano_dir_gen():
     xtf_dir = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/'
     draping_res_folder = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/9-0169to0182-nbr_pings-5204'
     annotation_dir = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0'
-    for i in range(4):
+    for i in range(5):
         parent_path = data_path + sss_no[i] + '/deconv_patch_pairs'
         deconv_img_dir = data_path + sss_no[i] + '/deconv_cano_img'
         os.mkdir(parent_path)
