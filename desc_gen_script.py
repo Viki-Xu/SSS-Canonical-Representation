@@ -3,6 +3,8 @@ from operator import le
 import string
 import sys
 
+from requests import patch
+
 sys.path.append('/home/viki/Master_Thesis/auvlib/scripts')
 sys.path.append('/home/viki/Master_Thesis/SSS-Canonical-Representation')
 
@@ -87,8 +89,8 @@ def cano_img_gen(
     matched_kps2 = np.array(matched_kps2).astype(np.float32)
 
     # do canonical transform and save img / kps
-    raw_img1, canonical_img1, r1, rg1, rg_bar1, canonical_kps1 = canonical_trans(xtf_file1, matched_kps1, mesh_file, svp_file, len_bins = 1301, LambertianModel = "sin_square")
-    raw_img2, canonical_img2, r2, rg2, rg_bar2, canonical_kps2 = canonical_trans(xtf_file2, matched_kps2, mesh_file, svp_file, len_bins = 1301, LambertianModel = "sin_square")
+    raw_img1, canonical_img1, r1, rg1, rg_bar1, canonical_kps1 = canonical_trans(xtf_file1, mesh_file, svp_file, matched_kps1, deconv=True, len_bins = 1301, LambertianModel = "sin_square")
+    raw_img2, canonical_img2, r2, rg2, rg_bar2, canonical_kps2 = canonical_trans(xtf_file2, mesh_file, svp_file, matched_kps2, deconv=True, len_bins = 1301, LambertianModel = "sin_square")
 
     np.save(path1, raw_img1)
     np.save(path2, raw_img2)
@@ -100,8 +102,46 @@ def cano_img_gen(
     generate_patches_pair(path1, path2, matched_kps1, matched_kps2, False, patch_size, patch_outpath)
     generate_patches_pair(canonical_path1, canonical_path2, canonical_kps1, canonical_kps2, True, patch_size, patch_outpath)
 
+def cano_dir_gen():
+    data_path = '/home/viki/Master_Thesis/SSS-Canonical-Representation/data/ssh'
+    sss_no = ['170', '171', '172', '173', '174']
+    xtf_files = ['SSH-0170-l01s01-20210210-111341.XTF',
+                'SSH-0171-l02s01-20210210-112129.XTF',
+                'SSH-0172-l03s01-20210210-112929.XTF',
+                'SSH-0173-l04s01-20210210-113741.XTF',
+                'SSH-0174-l05s01-20210210-114538.XTF']
+    annotated_files = ['SSH-0170-l01s01-20210210-111341.cereal',
+                        'SSH-0171-l02s01-20210210-112129.cereal',
+                        'SSH-0172-l03s01-20210210-112929.cereal',
+                        'SSH-0173-l04s01-20210210-113741.cereal',
+                        'SSH-0174-l05s01-20210210-114538.cereal']
+    xtf_dir = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/'
+    draping_res_folder = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209/pp/ETPro/ssh/9-0169to0182/9-0169to0182-nbr_pings-5204'
+    annotation_dir = '/home/viki/Master_Thesis/auvlib/data/GullmarsfjordSMaRC20210209_ssh_annotations/survey2_better_resolution/9-0169to0182-nbr_pings-1301_annotated/annotations/SSH-0'
+    for i in range(4):
+        parent_path = data_path + sss_no[i] + '/deconv_patch_pairs'
+        deconv_img_dir = data_path + sss_no[i] + '/deconv_cano_img'
+        os.mkdir(parent_path)
+        os.mkdir(deconv_img_dir)
+        annotation_file = annotation_dir + sss_no[i] + '/correspondence_annotations_SSH-0' + sss_no[i] + '.json'
+        for j in range(5):
+            if sss_no[i] == sss_no[j]:
+                continue
+            patch_outpath = parent_path + '/ssh' + sss_no[j]
+            os.mkdir(patch_outpath)
+            path1 = deconv_img_dir + '/ssh' + sss_no[i] + '_raw.npy'
+            path2 = deconv_img_dir + '/ssh' + sss_no[j] + '_raw.npy'
+            canonical_path1 = deconv_img_dir + '/ssh' + sss_no[i] + '_canonical.npy'
+            canonical_path2 = deconv_img_dir + '/ssh' + sss_no[j] + '_canonical.npy'
+            xtf_file1 = xtf_dir + xtf_files[i]
+            xtf_file2 = xtf_dir + xtf_files[j]
+            filename1 = annotated_files[i]
+            filename2 = annotated_files[j]
+            cano_img_gen(path1, path2, canonical_path1, canonical_path2, xtf_file1, xtf_file2, draping_res_folder, annotation_file, filename1, filename2, patch_outpath)
+            print(f'Generate patch pairs in {patch_outpath}')
 
-def desc_evaluation(patch_outpath, matcher, descType, rotate, cano_match, raw_match):
+
+def desc_evaluation(patch_outpath, matcher, descType, rotate, cano_match, raw_match, similarity_comparision):
     '''
     Conduct evaluation based on desc matching for one set of patch pairs: sss17x-sss17y
     '''
@@ -170,6 +210,11 @@ def desc_evaluation(patch_outpath, matcher, descType, rotate, cano_match, raw_ma
             rotated_raw_img2, rotated_raw_kps2 = patch_rotated(patch_raw.sss_waterfall_image2, patch_raw.annotated_keypoints2)
             patch_raw_annotated_kps2, patch_raw_desc2, patch_raw_img2_normalized = compute_desc_at_annotated_locations(rotated_raw_img2, rotated_raw_kps2, desc[0], rawmax, kp_size=16)
         
+        cano_metric = similarity_compare(patch_cano_img1_normalized, patch_cano_img2_normalized)
+        raw_metric = similarity_compare(patch_raw_img1_normalized, patch_raw_img2_normalized)
+        imprv = (cano_metric - raw_metric) / raw_metric
+        similarity_comparision.append([cano_metric, raw_metric, imprv])
+
         if matcher == "Matcher":
             bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
             patch_cano_correct = []
@@ -251,4 +296,16 @@ def desc_evaluation(patch_outpath, matcher, descType, rotate, cano_match, raw_ma
     cano_match.append([sum(cano_correct), sum(cano_matched), descType, filename_pair])
     raw_match.append([sum(raw_correct), sum(raw_matched), descType, filename_pair])
 
-    return cano_match, raw_match
+    return cano_match, raw_match, similarity_comparision
+
+def similarity_compare(patch_img1_normalized, patch_img2_normalized):
+    hist2 = cv.calcHist(patch_img2_normalized, [0], None, [256], [0,255])
+    hist1 = cv.calcHist(patch_img1_normalized, [0], None, [256], [0,255])
+    # plt.figure()
+    # plt.hist(hist1)
+    # plt.figure()
+    # plt.hist(hist2)
+    # plt.show()
+    print(len(hist1))
+    similarity = cv.compareHist(hist1, hist2, cv.HISTCMP_CHISQR_ALT)
+    return similarity
