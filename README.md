@@ -26,3 +26,14 @@ mesh_file = "/path/to/mesh-data-roll0.35.cereal_resolution0.5m.npz"
 svp_file = "/path/to/GullmarsfjordSMaRC20210209/pp/processed_svp.txt"
 raw_img1, canonical_img1, r1, rg1, rg_bar1 = canonical_trans(xtf_file1, mesh_file, svp_file, len_bins = 1301, LambertianModel = "sin_square")
 ```
+
+## Citation
+
+If you find this code useful, please cite the following paper:
+
+    @article{xu2023evaluation,
+    title={Evaluation of a Canonical Image Representation for Sidescan Sonar},
+    author={Xu, Weiqi and Ling, Li and Xie, Yiping and Zhang, Jun and Folkesson, John},
+    journal={arXiv preprint arXiv:2304.09243},
+    year={2023}
+    }
